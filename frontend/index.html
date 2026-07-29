@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071525">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>SOCCER VISION ANALYZER PRO</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div><p class="eyebrow">PRO SOCCER ANALYTICS</p><h1>SOCCER VISION ANALYZER <span>PRO</span></h1></div>
+  <div class="head-actions">
+    <select id="role"><option value="coach">コーチ</option><option value="staff">スタッフ</option><option value="parent">保護者</option></select>
+    <button id="backup" class="ghost">バックアップ</button>
+    <button id="restore" class="ghost">復元</button>
+    <input id="restoreFile" type="file" accept=".json" hidden>
+  </div>
+</header>
+
+<main class="shell">
+<nav class="tabs">
+  <button class="tab active coach staff" data-view="analysis">動画解析</button>
+  <button class="tab" data-view="dashboard">ダッシュボード</button>
+  <button class="tab coach staff" data-view="maps">分析マップ</button>
+  <button class="tab coach staff" data-view="manage">試合・選手</button>
+  <button class="tab" data-view="season">シーズン</button>
+  <button class="tab" data-view="reports">レポート</button>
+  <button class="tab coach" data-view="settings">設定</button>
+</nav>
+
+<section id="analysisView" class="view active coach staff">
+  <div class="analysis-grid">
+    <section class="card">
+      <div class="section-title"><div><h2>動画解析</h2><p class="note">動画を選び、選手とプレーを押すだけ。</p></div>
+      <label class="filebtn">動画選択<input id="videoInput" type="file" accept="video/*"></label></div>
+      <video id="video" controls playsinline></video>
+      <div class="video-tools">
+        <button data-seek="-10">−10秒</button><button data-seek="-5">−5秒</button>
+        <button id="prevFrame">◀1コマ</button><button id="playPause" class="primary">再生／停止</button>
+        <button id="nextFrame">1コマ▶</button><button data-seek="5">＋5秒</button><button data-seek="10">＋10秒</button>
+      </div>
+      <div class="time-row"><strong id="time">00:00.00</strong>
+      <label>速度<select id="rate"><option>.25</option><option>.5</option><option>.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option></select></label></div>
+    </section>
+
+    <aside class="card">
+      <div class="grid two"><label>試合<select id="analysisMatch"></select></label><label>時間帯<select id="period"><option>前半</option><option>後半</option><option>延長前半</option><option>延長後半</option></select></label></div>
+      <h3>選手</h3><div id="quickPlayers" class="quick"></div><p id="selectedPlayer" class="selected">選手未選択</p>
+      <button id="clearPlayer" class="ghost small">選択解除</button>
+      <h3>プレー</h3><div id="eventButtons" class="events"></div>
+      <label>コメント<input id="comment" placeholder="任意"></label>
+      <div class="actions"><button id="undo" class="ghost">1つ戻す</button><button id="highlight" class="highlight">★ ハイライト</button></div>
+    </aside>
+  </div>
+  
+<section class="card pro-cloud-panel coach staff">
+  <div class="section-title">
+    <div>
+      <h2>AI・クラウド処理</h2>
+      <p class="note">動画をサーバーへ送り、選手・ボール追跡とハイライト作成を実行します。</p>
+    </div>
+    <span id="proConnectionStatus" class="status">未接続</span>
+  </div>
+  <div class="grid three">
+    <button id="proUploadVideo" class="primary">① 動画をアップロード</button>
+    <button id="proStartAnalysis" disabled>② AI追跡を開始</button>
+    <button id="proCreateHighlights" disabled>③ ハイライト作成</button>
+  </div>
+  <div class="progress-wrap"><progress id="proProgress" max="100" value="0"></progress><span id="proJobMessage">待機中</span></div>
+  <a id="proHighlightDownload" class="download-link" hidden>ハイライト動画を開く</a>
+</section>
+
+<section class="card"><div class="section-title"><div><h2>タイムライン</h2><p class="note">時刻を押すと5秒前から再生します。</p></div><div><button id="csv" class="ghost">CSV</button><button id="xls" class="ghost">Excel</button></div></div><div id="timeline"></div></section>
+</section>
+
+<section id="dashboardView" class="view">
+  <section class="card hero"><div><p class="eyebrow">TEAM OVERVIEW</p><h2 id="teamTitle">チーム名未設定</h2><p id="seasonTitle" class="note"></p></div></section>
+  <section class="kpis"><div class="card kpi"><span>試合</span><b id="kMatch">0</b></div><div class="card kpi"><span>勝利</span><b id="kWin">0</b></div><div class="card kpi"><span>得点</span><b id="kGoal">0</b></div><div class="card kpi"><span>失点</span><b id="kAgainst">0</b></div><div class="card kpi"><span>勝率</span><b id="kRate">0%</b></div><div class="card kpi"><span>選手</span><b id="kPlayers">0</b></div></section>
+  <section class="grid two"><div class="card"><h2>最近の試合</h2><div id="recent"></div></div><div class="card"><h2>得点ランキング</h2><div id="ranking"></div></div></section>
+  <section class="card"><h2>AI分析コメント</h2><div id="aiSummary" class="analysis-comment"></div></section>
+  <section class="card"><h2>チームからのお知らせ</h2><textarea id="message" class="coach staff" rows="4"></textarea><p id="messageView"></p></section>
+</section>
+
+<section id="mapsView" class="view coach staff">
+  <section class="card">
+    <div class="section-title"><div><h2>ヒートマップ・パスマップ</h2><p class="note">記録位置を視覚化します。</p></div>
+      <div class="mapmodes"><button class="mode primary" data-mode="heat">ヒート</button><button class="mode" data-mode="shots">シュート</button><button class="mode" data-mode="passes">パス</button><button class="mode" data-mode="loss">ロスト</button></div></div>
+    <div class="grid three"><label>試合<select id="mapMatch"></select></label><label>選手<select id="mapPlayer"><option value="">全選手</option></select></label><label>時間帯<select id="mapPeriod"><option value="">すべて</option><option>前半</option><option>後半</option></select></label></div>
+    <canvas id="pitch" width="1100" height="680"></canvas><div id="legend" class="legend"></div>
+  </section>
+</section>
+
+<section id="manageView" class="view coach staff">
+  <section class="card"><div class="section-title"><h2>試合管理</h2><button id="addMatch" class="primary">試合追加</button></div><div id="matchEditor"></div></section>
+  <section class="card"><div class="section-title"><h2>選手管理</h2><button id="addPlayer" class="primary">選手追加</button></div><div id="playerEditor"></div></section>
+</section>
+
+<section id="seasonView" class="view">
+  <section class="card"><div class="section-title"><h2>シーズン分析</h2><select id="seasonFilter"></select></div><div id="seasonStats" class="stats"></div></section>
+  <section class="grid two"><div class="card"><h2>大会別成績</h2><div id="competition"></div></div><div class="card"><h2>月別推移</h2><canvas id="seasonChart" width="900" height="420"></canvas></div></section>
+</section>
+
+<section id="reportsView" class="view">
+  <section class="card"><div class="section-title"><h2>PDF・Excelレポート</h2><button id="print" class="primary">印刷・PDF</button></div>
+  <div class="grid three"><label>種類<select id="reportType"><option value="season">シーズン</option><option value="match">試合</option><option value="player">選手</option></select></label><label>対象<select id="reportTarget"></select></label><label>タイトル<input id="reportTitle"></label></div>
+  <article id="reportPreview" class="report"></article></section>
+</section>
+
+<section id="settingsView" class="view coach">
+  <section class="card"><h2>チーム設定</h2><div class="grid two"><label>チーム名<input id="teamName"></label><label>年度<input id="currentSeason"></label></div><label>テーマ色<input id="teamColor" type="color"></label><button id="saveSettings" class="primary">保存</button></section>
+  <section class="card"><h2>クラウド・AI接続設定</h2><p class="note">SupabaseやAI APIを後から接続できます。</p><label>Supabase URL<input id="supabaseUrl"></label><label>Supabase Anon Key<input id="supabaseKey" type="password"></label><label>AI API URL<input id="aiUrl"></label><div id="cloudStatus" class="status"></div><button id="saveCloud" class="ghost">接続情報保存</button></section>
+</section>
+</main>
+
+<dialog id="posDialog"><div class="dialog"><div class="section-title"><h2 id="posTitle">位置を選択</h2><button id="posClose" class="ghost">閉じる</button></div><canvas id="posPitch" width="1000" height="620"></canvas><p id="posText" class="selected">位置未選択</p><div class="actions"><button id="posSkip" class="ghost">位置なし</button><button id="posSave" class="primary" disabled>記録</button></div></div></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script src="pro-integration.js"></script>
+</body></html>

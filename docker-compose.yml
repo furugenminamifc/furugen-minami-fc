@@ -1,0 +1,14 @@
+services:
+  ai-server:
+    build: ./ai-server
+    ports:
+      - "8000:8000"
+    environment:
+      DATA_DIR: /app/data
+      CORS_ORIGINS: "*"
+      YOLO_MODEL: yolo11n.pt
+      YOLO_TRACKER: bytetrack.yaml
+    volumes:
+      - sva_ai_data:/app/data
+volumes:
+  sva_ai_data:

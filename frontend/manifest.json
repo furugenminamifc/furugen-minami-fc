@@ -1,0 +1,9 @@
+{
+  "name": "SOCCER VISION ANALYZER PRO",
+  "short_name": "SVA PRO",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#06101d",
+  "theme_color": "#071525",
+  "icons": []
+}
