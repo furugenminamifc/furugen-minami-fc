@@ -1,0 +1,28 @@
+古堅南FC Ver.5 Phase 2 フロント統合手順
+
+【重要】
+現在8000番で動いている SOCCER VISION ANALYZER PRO AI Server は動画解析用で、AI会話API /v1/ai/chat はありません。
+このPhase 2フォルダは別のAI会話サーバーを8001番で起動します。
+
+1. このフォルダ内で .env.example を複製し、名前を .env に変更
+2. .env の OPENAI_API_KEY= に自分のAPIキーを入力（.envはGitHubへアップロード禁止）
+3. ターミナルでこのフォルダへ移動
+4. docker compose up --build
+5. Safariで http://localhost:8001/health を開く
+6. 別のターミナルで python3 -m http.server 5500
+7. Safariで http://localhost:5500 を開く
+8. メニューの「🤖 AI」を押す
+9. AI設定URLが http://localhost:8001 であることを確認し、接続確認
+10. 質問を送って回答が返ることを確認
+
+【GitHubへ反映するファイル】
+index.html
+assets フォルダ
+manifest.webmanifest
+sw.js
+
+config.js は現在公開中のSupabase設定と同じであることを確認してから上書きしてください。
+.env、ai-server、docker-compose.ymlはGitHub Pagesの公開動作には不要です。
+
+【公開サイトからAIを使う場合】
+GitHub PagesはHTTPSです。チーム全員・iPhoneからAIを使うには、AIサーバーをHTTPSで公開し、そのURLをAI設定に保存する必要があります。localhostはそのMacだけで利用できます。

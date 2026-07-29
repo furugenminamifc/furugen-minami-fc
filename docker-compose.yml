@@ -1,14 +1,9 @@
 services:
-  web:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-    volumes:
-      - ./:/usr/share/nginx/html:ro
   ai-server:
     build: ./ai-server
+    container_name: furugen-minami-ai-ver6
     ports:
-      - "8000:8000"
+      - "8001:8000"
     env_file:
       - .env
     restart: unless-stopped

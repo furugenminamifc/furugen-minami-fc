@@ -1,9 +1,10 @@
 {
-  "name": "古堅南FC Ver.4",
-  "short_name": "古堅南FC",
+  "name": "古堅南FC Ver.6",
+  "short_name": "古堅南FC V6",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f7fb",
   "theme_color": "#0284c7",
-  "icons": []
+  "icons": [],
+  "description": "古堅南FC クラウドAIレポート・動画メモ対応版"
 }
