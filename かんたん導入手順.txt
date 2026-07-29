@@ -1,0 +1,33 @@
+古堅南FC Ver.3 完成版
+
+【完成している機能】
+・保護者はログイン不要で最新成績を閲覧
+・管理者／コーチログイン
+・複数コーチによる試合入力
+・試合と選手記録のまとめ入力
+・出場、時間、得点、アシスト、黄／赤カード、MVP
+・通算成績とランキング自動集計
+・選手追加・編集、過去通算成績編集
+・試合削除
+・CSV出力
+・スマホ対応、ホーム画面追加対応
+・Supabaseリアルタイム同期
+
+【最初に1回だけ】
+1. Supabase SQLエディタで「Ver3追加設定.sql」を実行
+2. Supabase「認証」→「ユーザー」で隼人さん用ユーザーを作成
+3. 作ったユーザーのUUIDをコピー
+4. 「管理者コーチ設定.sql」の USER_UUID を置き換えて実行
+5. GitHubのリポジトリにこのフォルダ内の全ファイルをアップロード
+
+【GitHub Pages】
+リポジトリ Settings → Pages
+Source: Deploy from a branch
+Branch: main / (root) → Save
+
+【公開URLの例】
+https://furugenminamifc.github.io/furugen-minami-fc/
+
+【重要】
+sb_secret_ で始まる秘密キーは絶対にGitHubへアップロードしないでください。
+このセットには公開可能な sb_publishable_ キーのみ入っています。

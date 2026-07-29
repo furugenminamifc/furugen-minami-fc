@@ -1,4 +1,4 @@
 window.FURUGEN_CONFIG = {
   SUPABASE_URL: "https://frdohizjmjzutizlswue.supabase.co",
-  SUPABASE_ANON_KEY: "ここに_sb_publishable_で始まる公開キーを貼り付ける"
+  SUPABASE_ANON_KEY: "sb_publishable_vczyuoAxBVYblDoaCr3NVg_26i7Jn8E"
 };
