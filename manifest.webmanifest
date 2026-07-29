@@ -1,1 +1,9 @@
-{"name":"古堅南FC Ver.3","short_name":"古堅南FC","start_url":"./index.html","display":"standalone","background_color":"#f4f7fb","theme_color":"#0284c7","icons":[]}
+{
+  "name": "古堅南FC Ver.4",
+  "short_name": "古堅南FC",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0284c7",
+  "icons": []
+}

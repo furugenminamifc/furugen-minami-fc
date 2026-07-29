@@ -1,0 +1,19 @@
+古堅南FC Ver.4 完全版
+
+1. Supabaseで Ver4追加設定.sql を1回実行します。
+2. GitHubの furugen-minami-fc を開きます。
+3. Add file → Upload files を選びます。
+4. このフォルダの中身をすべて選択してアップロードします。
+   ※フォルダ自体ではなく、中身を選びます。
+5. Commit directly to the main branch を選び、Commit changes を押します。
+6. 1〜3分待ち、公開ページを Command + Shift + R で再読み込みします。
+
+アップロード対象：
+- index.html
+- config.js
+- manifest.webmanifest
+- sw.js
+- assets フォルダ
+- .nojekyll
+
+SQL・説明書は公開動作に必須ではありませんが、保管用として一緒に置いても問題ありません。
