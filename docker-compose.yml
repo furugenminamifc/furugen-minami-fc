@@ -1,14 +1,14 @@
 services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
   ai-server:
     build: ./ai-server
     ports:
       - "8000:8000"
-    environment:
-      DATA_DIR: /app/data
-      CORS_ORIGINS: "*"
-      YOLO_MODEL: yolo11n.pt
-      YOLO_TRACKER: bytetrack.yaml
-    volumes:
-      - sva_ai_data:/app/data
-volumes:
-  sva_ai_data:
+    env_file:
+      - .env
+    restart: unless-stopped
