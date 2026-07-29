@@ -1,1 +1,9 @@
-{"name":"古堅南FC公式サッカー管理システム Ver.4.1","short_name":"古堅南FC","start_url":"./","display":"standalone","background_color":"#f4f8fb","theme_color":"#06233d","icons":[]}
+{
+  "name": "古堅南FC Ver.4",
+  "short_name": "古堅南FC",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0284c7",
+  "icons": []
+}
