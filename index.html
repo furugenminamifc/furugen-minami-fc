@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.16.0</title>
+<title>古堅南FC AI Coach Ver.16.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=16.0.2">
+<link rel="stylesheet" href="./assets/css/app.css?v=16.2.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.16.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.16.2</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -173,7 +173,7 @@
 <section id="video" class="page">
   <div class="video16x-hero">
     <div>
-      <span>古堅南FC AI Coach Ver.16.0</span>
+      <span>古堅南FC AI Coach Ver.16.2</span>
       <h2>🎥 動画分析 × 縦向きコート</h2>
       <p>動画を再生しながら、ボール位置・選手位置・パス・シュートを記録し、ヒートマップとして重ねて表示します。</p>
     </div>
@@ -259,6 +259,75 @@
     </section>
   </div>
 
+
+  <div class="video162-tracker">
+    <div class="video16x-head">
+      <div><span>Ver.16.2 β</span><h3>補助付き自動追跡</h3></div>
+      <div class="video162-status" id="video162Status">停止中</div>
+    </div>
+
+    <div class="video162-steps">
+      <div><b>1</b><span>動画を読み込む</span></div>
+      <div><b>2</b><span>対象色を指定</span></div>
+      <div><b>3</b><span>追跡開始</span></div>
+      <div><b>4</b><span>必要箇所を補正</span></div>
+    </div>
+
+    <div class="video162-grid">
+      <section class="video162-panel">
+        <h4>追跡設定</h4>
+        <div class="video162-colors">
+          <label>古堅南FC色<input id="video162HomeColor" type="color" value="#2f80ed"></label>
+          <label>相手チーム色<input id="video162AwayColor" type="color" value="#e53935"></label>
+          <label>ボール色<input id="video162BallColor" type="color" value="#ffffff"></label>
+        </div>
+        <div class="video162-row">
+          <label>色の許容範囲<input id="video162Tolerance" type="range" min="10" max="120" value="55"></label>
+          <span id="video162ToleranceValue">55</span>
+        </div>
+        <div class="video162-row">
+          <label>解析間隔
+            <select id="video162Interval">
+              <option value="250">0.25秒</option>
+              <option value="500" selected>0.5秒</option>
+              <option value="1000">1秒</option>
+            </select>
+          </label>
+        </div>
+        <div class="video162-actions">
+          <button onclick="startVideo162Tracking()">▶ 追跡開始</button>
+          <button class="light" onclick="pauseVideo162Tracking()">⏸ 一時停止</button>
+          <button class="light" onclick="resumeVideo162Tracking()">⏯ 再開</button>
+          <button class="danger" onclick="stopVideo162Tracking()">■ 停止</button>
+        </div>
+        <small>色と動きを使う補助追跡です。見失った場面は、コートをクリックして手動補正できます。</small>
+      </section>
+
+      <section class="video162-panel">
+        <h4>追跡結果</h4>
+        <div class="video162-metrics">
+          <div><span>古堅南FC</span><b id="video162HomeCount">0</b></div>
+          <div><span>相手</span><b id="video162AwayCount">0</b></div>
+          <div><span>ボール</span><b id="video162BallCount">0</b></div>
+          <div><span>信頼度</span><b id="video162Confidence">0%</b></div>
+        </div>
+        <div class="video162-warning" id="video162Warning">動画を読み込み、追跡設定を確認してください。</div>
+        <div class="video162-correction">
+          <label>補正対象
+            <select id="video162CorrectionType">
+              <option value="ball">ボール</option>
+              <option value="home">古堅南FC</option>
+              <option value="away">相手チーム</option>
+            </select>
+          </label>
+          <button class="light" onclick="enableVideo162Correction()">手動補正モード</button>
+        </div>
+      </section>
+    </div>
+
+    <canvas id="video162Canvas" class="video162-canvas" aria-label="追跡解析用キャンバス"></canvas>
+  </div>
+
   <div class="video16x-ai">
     <div class="video16x-head">
       <div><span>AI連携</span><h3>コート上の記録から分析</h3></div>
@@ -282,8 +351,8 @@
 <section id="coach" class="page">
   <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.16.0</span>
-      <h2>動画分析を縦向きコートへ重ねて表示</h2>
+      <span class="coach-version">古堅南FC AI Coach Ver.16.2</span>
+      <h2>補助付き自動追跡で動画分析を効率化</h2>
       <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
     <div class="coach11-hero-actions">
@@ -662,5 +731,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=16.0.2"></script>
+<script src="./assets/js/app.js?v=16.2.0"></script>
 </body></html>

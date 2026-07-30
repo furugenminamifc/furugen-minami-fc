@@ -1748,6 +1748,144 @@ function exportVideo16OverlayCsv(){
  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='furugen_video_overlay.csv';a.click();URL.revokeObjectURL(a.href)
 }
 
+
+let video162Timer=null;
+let video162Running=false;
+let video162Paused=false;
+let video162CorrectionMode=false;
+let video162LastFrame=null;
+let video162Tracked={home:[],away:[],ball:[]};
+
+function video162HexToRgb(hex){
+ const v=String(hex||'').replace('#','');
+ if(v.length!==6)return {r:255,g:255,b:255};
+ return {r:parseInt(v.slice(0,2),16),g:parseInt(v.slice(2,4),16),b:parseInt(v.slice(4,6),16)}
+}
+function video162ColorDistance(r,g,b,target){
+ const dr=r-target.r,dg=g-target.g,db=b-target.b;
+ return Math.sqrt(dr*dr+dg*dg+db*db)
+}
+function video162UpdateTolerance(){
+ const v=$('video162Tolerance')?.value||55;
+ const out=$('video162ToleranceValue');if(out)out.textContent=v
+}
+function video162SetStatus(text,kind=''){
+ const el=$('video162Status');if(el){el.textContent=text;el.className=`video162-status ${kind}`}
+}
+function startVideo162Tracking(){
+ const video=$('video16Player');
+ if(!video||!video.src){showMessage('先に動画を読み込んでください。');return}
+ stopVideo162Tracking(false);
+ video162Running=true;video162Paused=false;video162Tracked={home:[],away:[],ball:[]};
+ video162SetStatus('追跡中','running');
+ runVideo162Frame();
+ const interval=Number($('video162Interval')?.value||500);
+ video162Timer=setInterval(runVideo162Frame,interval)
+}
+function pauseVideo162Tracking(){
+ if(!video162Running)return;
+ video162Paused=true;video162SetStatus('一時停止','paused')
+}
+function resumeVideo162Tracking(){
+ if(!video162Running)return;
+ video162Paused=false;video162SetStatus('追跡中','running')
+}
+function stopVideo162Tracking(reset=true){
+ if(video162Timer){clearInterval(video162Timer);video162Timer=null}
+ video162Running=false;video162Paused=false;video162SetStatus('停止中');
+ if(reset)video162LastFrame=null
+}
+function runVideo162Frame(){
+ if(!video162Running||video162Paused)return;
+ const video=$('video16Player'),canvas=$('video162Canvas');
+ if(!video||!canvas||video.readyState<2)return;
+ const maxW=320,ratio=(video.videoHeight||180)/(video.videoWidth||320);
+ canvas.width=maxW;canvas.height=Math.max(180,Math.round(maxW*ratio));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ ctx.drawImage(video,0,0,canvas.width,canvas.height);
+ let image;
+ try{image=ctx.getImageData(0,0,canvas.width,canvas.height)}catch(e){return}
+ const data=image.data,tol=Number($('video162Tolerance')?.value||55);
+ const home=video162HexToRgb($('video162HomeColor')?.value),away=video162HexToRgb($('video162AwayColor')?.value),ball=video162HexToRgb($('video162BallColor')?.value);
+ const step=4,found={home:[],away:[],ball:[]},motion=[];
+ for(let y=0;y<canvas.height;y+=step){
+  for(let x=0;x<canvas.width;x+=step){
+   const i=(y*canvas.width+x)*4,r=data[i],g=data[i+1],b=data[i+2];
+   if(video162ColorDistance(r,g,b,home)<tol)found.home.push([x,y]);
+   if(video162ColorDistance(r,g,b,away)<tol)found.away.push([x,y]);
+   if(video162ColorDistance(r,g,b,ball)<Math.max(18,tol*.55))found.ball.push([x,y]);
+   if(video162LastFrame){
+    const dr=Math.abs(r-video162LastFrame[i]),dg=Math.abs(g-video162LastFrame[i+1]),db=Math.abs(b-video162LastFrame[i+2]);
+    if(dr+dg+db>95)motion.push([x,y])
+   }
+  }
+ }
+ video162LastFrame=new Uint8ClampedArray(data);
+ const homePos=video162Cluster(found.home,canvas),awayPos=video162Cluster(found.away,canvas),ballPos=video162PickBall(found.ball,motion,canvas);
+ video162Tracked={home:homePos,away:awayPos,ball:ballPos?[ballPos]:[]};
+ video162DrawCanvas(ctx,homePos,awayPos,ballPos);
+ video162SyncToPitch(video.currentTime,homePos,awayPos,ballPos);
+ const confidence=Math.round(Math.min(100,(homePos.length+awayPos.length+(ballPos?1:0))*7));
+ video162UpdateMetrics(homePos.length,awayPos.length,ballPos?1:0,confidence)
+}
+function video162Cluster(points,canvas){
+ if(!points.length)return [];
+ const cells=new Map(),size=26;
+ points.forEach(([x,y])=>{const k=`${Math.floor(x/size)}_${Math.floor(y/size)}`;(cells.get(k)||cells.set(k,[]).get(k)).push([x,y])});
+ return [...cells.values()].filter(a=>a.length>=3).map(a=>{
+  const x=a.reduce((s,p)=>s+p[0],0)/a.length,y=a.reduce((s,p)=>s+p[1],0)/a.length;
+  return {x:x/canvas.width*100,y:y/canvas.height*100,score:a.length}
+ }).sort((a,b)=>b.score-a.score).slice(0,8)
+}
+function video162PickBall(colorPoints,motion,canvas){
+ const candidates=colorPoints.length?colorPoints:motion;
+ if(!candidates.length)return null;
+ const cx=candidates.reduce((s,p)=>s+p[0],0)/candidates.length,cy=candidates.reduce((s,p)=>s+p[1],0)/candidates.length;
+ return {x:cx/canvas.width*100,y:cy/canvas.height*100,score:candidates.length}
+}
+function video162DrawCanvas(ctx,home,away,ball){
+ ctx.save();ctx.lineWidth=2;
+ home.forEach(p=>{ctx.strokeStyle='#2f80ed';ctx.strokeRect(p.x/100*ctx.canvas.width-10,p.y/100*ctx.canvas.height-14,20,28)});
+ away.forEach(p=>{ctx.strokeStyle='#e53935';ctx.strokeRect(p.x/100*ctx.canvas.width-10,p.y/100*ctx.canvas.height-14,20,28)});
+ if(ball){ctx.strokeStyle='#ffffff';ctx.beginPath();ctx.arc(ball.x/100*ctx.canvas.width,ball.y/100*ctx.canvas.height,7,0,Math.PI*2);ctx.stroke()}
+ ctx.restore()
+}
+function video162SyncToPitch(time,home,away,ball){
+ const pitch=$('video16OverlayPitch');if(!pitch)return;
+ pitch.querySelectorAll('.video162-auto').forEach(n=>n.remove());
+ home.forEach((p,i)=>pitch.insertAdjacentHTML('beforeend',`<div class="video162-auto home" style="left:${p.x}%;top:${p.y}%"><span>H${i+1}</span></div>`));
+ away.forEach((p,i)=>pitch.insertAdjacentHTML('beforeend',`<div class="video162-auto away" style="left:${p.x}%;top:${p.y}%"><span>A${i+1}</span></div>`));
+ if(ball)pitch.insertAdjacentHTML('beforeend',`<div class="video162-auto ball" style="left:${ball.x}%;top:${ball.y}%"><span>⚽</span></div>`);
+}
+function video162UpdateMetrics(home,away,ball,confidence){
+ const set=(id,v)=>{const e=$(id);if(e)e.textContent=v};
+ set('video162HomeCount',home);set('video162AwayCount',away);set('video162BallCount',ball);set('video162Confidence',`${confidence}%`);
+ const w=$('video162Warning');if(w){
+  if(confidence<35)w.textContent='信頼度が低めです。色設定や許容範囲を調整してください。';
+  else if(!ball)w.textContent='ボールを見失っています。必要なら手動補正してください。';
+  else w.textContent='追跡中です。誤認識があれば手動補正してください。'
+ }
+}
+function enableVideo162Correction(){
+ video162CorrectionMode=true;
+ showMessage('手動補正モードです。縦向きコート上の正しい位置をクリックしてください。','ok')
+}
+function handleVideo162Correction(ev){
+ if(!video162CorrectionMode)return false;
+ const pitch=$('video16OverlayPitch'),rect=pitch.getBoundingClientRect();
+ const x=(ev.clientX-rect.left)/rect.width*100,y=(ev.clientY-rect.top)/rect.height*100,type=$('video162CorrectionType')?.value||'ball';
+ const video=$('video16Player'),time=video?.currentTime||0,rows=video16Read();
+ if(type==='ball')rows.push({id:`v162_${Date.now()}`,type:'ball',x,y,time,note:'手動補正',source:'video162'});
+ else rows.push({id:`v162_${Date.now()}`,type:'player',x,y,time,player_id:null,note:type==='home'?'古堅南FC 手動補正':'相手チーム 手動補正',team:type,source:'video162'});
+ video16Write(rows);video162CorrectionMode=false;showMessage('補正位置を保存しました。','ok');return true
+}
+const video162OriginalPitchClick=typeof handleVideo16PitchClick==='function'?handleVideo16PitchClick:null;
+function handleVideo16PitchClick(ev){
+ if(handleVideo162Correction(ev))return;
+ if(video162OriginalPitchClick)return video162OriginalPitchClick(ev)
+}
+document.addEventListener('input',e=>{if(e.target?.id==='video162Tolerance')video162UpdateTolerance()});
+
 function renderVideoNotes(){const box=$('videoNotesList');if(!box)return;box.innerHTML=videoNotes.map(n=>{const m=matches.find(x=>x.id===n.match_id),p=players.find(x=>x.id===n.player_id);return `<div class="video-note"><div><b>${esc(n.timestamp||'時間未設定')} ${esc(n.event_type||'')}</b><span class="pill">${esc(p?.name||'チーム全体')}</span><div>${esc(n.note||'')}</div><div class="muted">${esc(m?`${m.match_date||''} 対${m.opponent||''}`:'試合')}</div></div>${isStaff()?`<button class="danger" onclick="deleteVideoNote('${n.id}')">削除</button>`:''}</div>`}).join('')||'<p class="muted">動画メモはありません。</p>'}
 async function deleteVideoNote(id){if(!confirm('この動画メモを削除しますか？'))return;const r=await sb.from('video_notes').delete().eq('id',id);if(r.error)showMessage(r.error.message);else await loadAll()}
 function buildVideoAiPrompt(){const matchId=$('videoMatchSelect')?.value;if(!matchId){showMessage('対象試合を選択してください。');return}const m=matches.find(x=>String(x.id)===String(matchId)),notes=videoNotes.filter(n=>String(n.match_id)===String(matchId));if(!notes.length){showMessage('この試合の動画メモがありません。');return}showPage('ai');setAiMode('match',document.querySelector('[data-mode="match"]'));setAiPrompt(`次の動画メモを分析し、良かった点、改善点、次回練習、試合中の声かけを提案してください。\n試合：${m?.match_date||''} 対${m?.opponent||''} ${m?.goals_for||0}-${m?.goals_against||0}\n場面：\n${notes.map(n=>`${n.timestamp||''} ${n.event_type||''} ${n.note||''}`).join('\n')}`)}
