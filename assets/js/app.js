@@ -777,7 +777,21 @@ ${rank||'未登録'}
  coachSendPrompt('season',prompt)
 }
 
-function renderAll(){renderAiCoachDashboard();renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
+function renderAll(){
+ const v16m=$('video16MatchSelect');
+ if(v16m){
+  const cur=v16m.value;
+  v16m.innerHTML='<option value="">選択してください</option>'+matches.map(m=>`<option value="${m.id}">${esc(m.match_date||'')} ${esc(m.opponent||'')}</option>`).join('');
+  if(cur)v16m.value=cur
+ }
+ const v16p=$('video16OverlayPlayer');
+ if(v16p){
+  const cur=v16p.value;
+  v16p.innerHTML='<option value="">チーム全体</option>'+players.filter(p=>p.status==='現役').map(p=>`<option value="${p.id}">${esc(p.name)} / ${esc(p.position)}</option>`).join('');
+  if(cur)v16p.value=cur
+ }
+ renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline();
+renderAiCoachDashboard();renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
 function renderDashboard(){let w=0,d=0,l=0,gf=0,ga=0;matches.forEach(m=>{gf+=m.goals_for||0;ga+=m.goals_against||0;m.goals_for>m.goals_against?w++:m.goals_for<m.goals_against?l++:d++});const rate=matches.length?Math.round(w/matches.length*100):0;$('stats').innerHTML=[['選手',players.length],['試合',matches.length],['勝利',w],['引分',d],['敗戦',l],['勝率',rate+'%'],['得点',gf],['失点',ga]].map(x=>`<div class="card stat"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');$('recent').innerHTML=matches.slice(0,6).map(matchHtml).join('')||'<p class="muted">まだ試合がありません。</p>'}
 function resultClass(m){return m.goals_for>m.goals_against?'win':m.goals_for<m.goals_against?'loss':'draw'}
 function matchHtml(m){return `<div class="match-row"><div><b>${esc(m.match_date)}</b> <span class="pill">${esc(m.competition||'通常試合')}</span><div class="muted">${esc(m.venue||'')} ${esc(m.memo||'')}</div></div><div><span class="score ${resultClass(m)}">${m.goals_for} - ${m.goals_against}</span><br>${esc(m.opponent)}</div></div>`}
@@ -1590,6 +1604,150 @@ async function deleteSavedReport(id){if(!confirm('このレポートを削除し
 async function copyReportOutput(){const v=$('reportOutput').value;if(!v){showMessage('コピーする内容がありません。');return}await navigator.clipboard.writeText(v);showMessage('レポートをコピーしました。','ok')}
 function renderVideoPage(){refreshVer6Selects();renderVideoNotes()}
 async function saveVideoNote(){if(!isStaff()){showMessage('動画メモ保存はコーチログインが必要です。');return}const matchId=$('videoMatchSelect').value,note=$('videoNote').value.trim();if(!matchId||!note){showMessage('対象試合とメモを入力してください。');return}const row={match_id:matchId,timestamp:$('videoTimestamp').value.trim(),event_type:$('videoEventType').value,player_id:$('videoPlayerSelect').value||null,note,created_by:session.user.id};const r=await sb.from('video_notes').insert(row);if(r.error){showMessage('保存エラー：'+r.error.message);return}$('videoNote').value='';$('videoTimestamp').value='';showMessage('動画メモを保存しました。','ok');await loadAll()}
+
+let video16PendingStart=null;
+function video16OverlayKey(){
+ const id=$('video16MatchSelect')?.value||'general';
+ return `furugenVideo16Overlay_${id}`
+}
+function video16Read(){
+ try{return JSON.parse(localStorage.getItem(video16OverlayKey())||'[]')}catch(e){return []}
+}
+function video16Write(rows){
+ localStorage.setItem(video16OverlayKey(),JSON.stringify(rows.slice(-600)));
+ renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()
+}
+function loadVideo16File(input){
+ const file=input.files?.[0],video=$('video16Player');if(!file||!video)return;
+ if(video.dataset.objectUrl)URL.revokeObjectURL(video.dataset.objectUrl);
+ const url=URL.createObjectURL(file);video.src=url;video.dataset.objectUrl=url;
+ video.addEventListener('timeupdate',()=>{const e=$('video16CurrentTime');if(e)e.textContent=formatVideo16Time(video.currentTime)},{passive:true})
+}
+function formatVideo16Time(sec){
+ sec=Math.max(0,Math.floor(Number(sec)||0));return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`
+}
+function captureVideo16Time(){
+ const video=$('video16Player'),e=$('video16CurrentTime');if(e)e.textContent=formatVideo16Time(video?.currentTime||0)
+}
+function video16PitchMarkings(){
+ return `<div class="v16-outline"></div><div class="v16-half"></div><div class="v16-circle"></div><div class="v16-spot"></div>
+ <div class="v16-box v16-top-box"></div><div class="v16-smallbox v16-top-small"></div><div class="v16-goal v16-top-goal"></div>
+ <div class="v16-box v16-bottom-box"></div><div class="v16-smallbox v16-bottom-small"></div><div class="v16-goal v16-bottom-goal"></div>`
+}
+function video16FormationSlots(f){
+ const map={
+  '3-2-2':[['GP',50,91],['DF',22,70],['DF',50,68],['DF',78,70],['MF',35,45],['MF',65,45],['FW',35,19],['FW',65,19]],
+  '2-3-2':[['GP',50,91],['DF',33,70],['DF',67,70],['MF',20,46],['MF',50,43],['MF',80,46],['FW',35,19],['FW',65,19]],
+  '3-3-1':[['GP',50,91],['DF',22,70],['DF',50,68],['DF',78,70],['MF',22,45],['MF',50,42],['MF',78,45],['FW',50,18]],
+  '2-2-3':[['GP',50,91],['DF',33,70],['DF',67,70],['MF',35,45],['MF',65,45],['FW',20,19],['FW',50,15],['FW',80,19]]
+ };return map[f]||map['3-2-2']
+}
+function handleVideo16PitchClick(ev){
+ const pitch=$('video16OverlayPitch'),match=$('video16MatchSelect')?.value;
+ if(!pitch||!match){showMessage('対象試合を選択してください。');return}
+ const r=pitch.getBoundingClientRect(),x=((ev.clientX-r.left)/r.width)*100,y=((ev.clientY-r.top)/r.height)*100;
+ const tool=$('video16Tool')?.value||'ball',playerId=$('video16OverlayPlayer')?.value||null;
+ const video=$('video16Player'),time=video?.currentTime||0,note=$('video16OverlayNote')?.value.trim()||'';
+ const rows=video16Read();
+ if(tool==='pass'||tool==='shot'){
+  if(!video16PendingStart){
+   video16PendingStart={x,y,time,player_id:playerId,note,tool};showMessage('始点を記録しました。次に終点をクリックしてください。','ok');return
+  }
+  rows.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),type:tool,x1:video16PendingStart.x,y1:video16PendingStart.y,x2:x,y2:y,time,player_id:playerId||video16PendingStart.player_id,note:note||video16PendingStart.note,created_at:new Date().toISOString()});
+  video16PendingStart=null
+ }else{
+  rows.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),type:tool,x,y,time,player_id:playerId,note,created_at:new Date().toISOString()})
+ }
+ video16Write(rows)
+}
+function renderVideo16OverlayPitch(){
+ const pitch=$('video16OverlayPitch');if(!pitch)return;
+ const rows=video16Read(),html=[video16PitchMarkings()];
+ if($('v16LayerHeat')?.checked){
+  rows.filter(x=>['heat','player','ball'].includes(x.type)).forEach(x=>html.push(`<span class="v16-heat" style="left:${x.x}%;top:${x.y}%"></span>`))
+ }
+ if($('v16LayerPass')?.checked){
+  rows.filter(x=>x.type==='pass').forEach(x=>html.push(video16ArrowSvg(x,'pass')))
+ }
+ if($('v16LayerShot')?.checked){
+  rows.filter(x=>x.type==='shot').forEach(x=>html.push(video16ArrowSvg(x,'shot')))
+ }
+ if($('v16LayerBall')?.checked){
+  rows.filter(x=>x.type==='ball').forEach(x=>html.push(`<div class="v16-ball" style="left:${x.x}%;top:${x.y}%" title="${esc(x.note||'ボール')}">⚽</div>`))
+ }
+ if($('v16LayerPlayer')?.checked){
+  rows.filter(x=>x.type==='player').forEach(x=>{
+   const p=players.find(a=>String(a.id)===String(x.player_id));
+   html.push(`<div class="v16-player-marker" style="left:${x.x}%;top:${x.y}%"><span>${esc((p?.position||'P').split('・')[0])}</span><b>${esc(p?.name||'選手')}</b></div>`)
+  })
+ }
+ pitch.innerHTML=html.join('')
+}
+function video16ArrowSvg(x,kind){
+ const dx=x.x2-x.x1,dy=x.y2-x.y1,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
+ return `<div class="v16-arrow ${kind}" style="left:${x.x1}%;top:${x.y1}%;width:${len}%;transform:rotate(${angle}deg)"><i></i></div>`
+}
+function autoPlaceVideo16Formation(){
+ const f=$('video16Formation')?.value||'3-2-2',slots=video16FormationSlots(f),active=players.filter(p=>p.status==='現役'),used=new Set(),rows=video16Read().filter(x=>x.source!=='formation');
+ slots.forEach(s=>{
+  let p=active.find(x=>!used.has(x.id)&&(x.position||'').includes(s[0]));
+  if(!p)p=active.find(x=>!used.has(x.id));if(!p)return;used.add(p.id);
+  rows.push({id:`formation_${p.id}`,type:'player',x:s[1],y:s[2],time:0,player_id:p.id,note:'フォーメーション配置',source:'formation'})
+ });
+ video16Write(rows)
+}
+function undoVideo16Overlay(){const rows=video16Read();rows.pop();video16Write(rows)}
+function clearVideo16MatchOverlay(){
+ if(!confirm('この試合のコート記録をすべて消去しますか？'))return;
+ localStorage.removeItem(video16OverlayKey());video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()
+}
+function resetVideo16Overlay(){video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()}
+function loadVideo16Overlay(){video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()}
+function renderVideo16OverlaySummary(){
+ const box=$('video16OverlaySummary');if(!box)return;const rows=video16Read();
+ const c=t=>rows.filter(x=>x.type===t).length;
+ box.innerHTML=`<div><span>ボール位置</span><b>${c('ball')}</b></div><div><span>選手位置</span><b>${c('player')}</b></div><div><span>パス</span><b>${c('pass')}</b></div><div><span>シュート</span><b>${c('shot')}</b></div><div><span>ヒート点</span><b>${c('heat')+c('player')+c('ball')}</b></div>`
+}
+function renderVideo16OverlayTimeline(){
+ const box=$('video16OverlayTimeline');if(!box)return;
+ const rows=video16Read().slice().sort((a,b)=>(a.time||0)-(b.time||0));
+ box.innerHTML=rows.length?rows.map((x,i)=>{
+  const p=players.find(a=>String(a.id)===String(x.player_id));
+  const labels={ball:'ボール',player:'選手位置',pass:'パス',shot:'シュート',heat:'ヒート'};
+  return `<div class="v16-time-row"><b>${formatVideo16Time(x.time)}</b><span>${labels[x.type]||x.type}</span><em>${esc(p?.name||'チーム')}</em><small>${esc(x.note||'')}</small><button class="danger" onclick="deleteVideo16Overlay('${x.id}')">削除</button></div>`
+ }).join(''):'<p class="muted">コート上の分析記録はありません。</p>'
+}
+function deleteVideo16Overlay(id){video16Write(video16Read().filter(x=>x.id!==id))}
+function video16OverlayText(){
+ return video16Read().map(x=>{
+  const p=players.find(a=>String(a.id)===String(x.player_id)),labels={ball:'ボール位置',player:'選手位置',pass:'パス',shot:'シュート',heat:'ヒート位置'};
+  const pos=x.x!=null?`位置(${x.x.toFixed(0)},${x.y.toFixed(0)})`:`始点(${x.x1.toFixed(0)},${x.y1.toFixed(0)})→終点(${x.x2.toFixed(0)},${x.y2.toFixed(0)})`;
+  return `${formatVideo16Time(x.time)} ${labels[x.type]} ${p?.name||'チーム全体'} ${pos} ${x.note||''}`
+ }).join('\n')
+}
+function runVideo16OverlayAiAnalysis(){
+ const text=video16OverlayText();if(!text){showMessage('先にコートへ分析記録を追加してください。');return}
+ coachSendPrompt('match',`縦向きコートに記録した次の動画分析データを分析してください。\n${text}\n\n攻撃傾向、守備傾向、パス方向、シュート位置、選手の立ち位置、ヒートマップ傾向、改善優先順位3つを整理してください。映像を直接自動認識したとは書かず、記録データを根拠にしてください。`)
+}
+function runVideo16OverlayPlayerReport(){
+ const id=$('video16OverlayPlayer')?.value,p=players.find(x=>String(x.id)===String(id));
+ if(!p){showMessage('選手を選択してください。');return}
+ const rows=video16Read().filter(x=>String(x.player_id)===String(id));
+ coachSendPrompt('player',`${p.name}選手のコート上の動画分析記録です。\n${rows.map(x=>`${formatVideo16Time(x.time)} ${x.type} ${x.note||''}`).join('\n')||'記録なし'}\n\n良かった点、改善点、立ち位置、次回テーマ、自主練習を小学生向けに作成してください。`)
+}
+function runVideo16OverlayTraining(){
+ coachSendPrompt('training',`次のコート上動画分析記録から、90分の練習メニューを作成してください。\n${video16OverlayText()||'記録なし'}\n\nウォームアップ、技術、対人、ゲーム、クールダウンの時間・目的・コーチングポイントを作成してください。`)
+}
+function runVideo16OverlayReport(){
+ coachSendPrompt('match',`次のコート上動画分析記録から試合後レポート一式を作成してください。\n${video16OverlayText()||'記録なし'}\n\n試合総評、ベストプレー、改善点、MVP候補、選手別一言、次回練習、保護者向け文章を作成してください。`)
+}
+function exportVideo16OverlayCsv(){
+ const rows=video16Read(),header=['時間','種類','選手','X','Y','開始X','開始Y','終了X','終了Y','メモ'];
+ const body=rows.map(x=>{const p=players.find(a=>String(a.id)===String(x.player_id));return [formatVideo16Time(x.time),x.type,p?.name||'チーム全体',x.x??'',x.y??'',x.x1??'',x.y1??'',x.x2??'',x.y2??'',x.note||'']});
+ const csv=[header,...body].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='furugen_video_overlay.csv';a.click();URL.revokeObjectURL(a.href)
+}
+
 function renderVideoNotes(){const box=$('videoNotesList');if(!box)return;box.innerHTML=videoNotes.map(n=>{const m=matches.find(x=>x.id===n.match_id),p=players.find(x=>x.id===n.player_id);return `<div class="video-note"><div><b>${esc(n.timestamp||'時間未設定')} ${esc(n.event_type||'')}</b><span class="pill">${esc(p?.name||'チーム全体')}</span><div>${esc(n.note||'')}</div><div class="muted">${esc(m?`${m.match_date||''} 対${m.opponent||''}`:'試合')}</div></div>${isStaff()?`<button class="danger" onclick="deleteVideoNote('${n.id}')">削除</button>`:''}</div>`}).join('')||'<p class="muted">動画メモはありません。</p>'}
 async function deleteVideoNote(id){if(!confirm('この動画メモを削除しますか？'))return;const r=await sb.from('video_notes').delete().eq('id',id);if(r.error)showMessage(r.error.message);else await loadAll()}
 function buildVideoAiPrompt(){const matchId=$('videoMatchSelect')?.value;if(!matchId){showMessage('対象試合を選択してください。');return}const m=matches.find(x=>String(x.id)===String(matchId)),notes=videoNotes.filter(n=>String(n.match_id)===String(matchId));if(!notes.length){showMessage('この試合の動画メモがありません。');return}showPage('ai');setAiMode('match',document.querySelector('[data-mode="match"]'));setAiPrompt(`次の動画メモを分析し、良かった点、改善点、次回練習、試合中の声かけを提案してください。\n試合：${m?.match_date||''} 対${m?.opponent||''} ${m?.goals_for||0}-${m?.goals_against||0}\n場面：\n${notes.map(n=>`${n.timestamp||''} ${n.event_type||''} ${n.note||''}`).join('\n')}`)}

@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.15.0</title>
+<title>古堅南FC AI Coach Ver.16.0</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=16.0.1">
+<link rel="stylesheet" href="./assets/css/app.css?v=16.0.2">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.15.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.16.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -169,18 +169,111 @@
     <div class="card"><div class="section-title"><h3>保存済みレポート</h3><button class="light" onclick="renderSavedReports()">更新</button></div><div id="savedReports"></div></div>
   </div>
 </section>
+
 <section id="video" class="page">
-  <div class="card report-hero"><div><div class="pill">Ver.6</div><h3>🎥 動画タイムスタンプメモ</h3><p class="muted">動画そのものをアップロードせず、試合動画の時間と場面を記録します。AIへの分析材料にも使えます。</p></div></div>
-  <div class="report-layout">
-    <div class="card">
-      <h3>場面を記録</h3>
-      <div class="field"><label>対象試合</label><select id="videoMatchSelect"><option value="">選択してください</option></select></div>
-      <div class="grid"><div><label>時間</label><input id="videoTimestamp" placeholder="例 12:35"></div><div><label>種類</label><select id="videoEventType"><option>良いプレー</option><option>改善場面</option><option>得点</option><option>失点</option><option>守備</option><option>攻撃</option><option>その他</option></select></div></div>
-      <div class="field"><label>選手（任意）</label><select id="videoPlayerSelect"><option value="">チーム全体</option></select></div>
-      <label>メモ</label><textarea id="videoNote" placeholder="場面の内容、良かった点、改善点を入力"></textarea>
-      <button onclick="saveVideoNote()">動画メモを保存</button>
+  <div class="video16x-hero">
+    <div>
+      <span>古堅南FC AI Coach Ver.16.0</span>
+      <h2>🎥 動画分析 × 縦向きコート</h2>
+      <p>動画を再生しながら、ボール位置・選手位置・パス・シュートを記録し、ヒートマップとして重ねて表示します。</p>
     </div>
-    <div class="card"><div class="section-title"><h3>動画メモ一覧</h3><button class="light" onclick="buildVideoAiPrompt()">AI分析へ送る</button></div><div id="videoNotesList"></div></div>
+    <button class="light" onclick="resetVideo16Overlay()">表示をリセット</button>
+  </div>
+
+  <div class="video16x-layout">
+    <section class="video16x-card">
+      <h3>① 動画を開く</h3>
+      <label>端末内の動画
+        <input id="video16File" type="file" accept="video/*" onchange="loadVideo16File(this)">
+      </label>
+      <video id="video16Player" controls playsinline preload="metadata"></video>
+      <div class="video16x-timebar">
+        <button class="light" onclick="captureVideo16Time()">現在時間を取得</button>
+        <b id="video16CurrentTime">00:00</b>
+      </div>
+
+      <h3>② 分析する試合・種類</h3>
+      <label>対象試合
+        <select id="video16MatchSelect" onchange="loadVideo16Overlay()"><option value="">選択してください</option></select>
+      </label>
+      <div class="video16x-controls">
+        <label>記録種類
+          <select id="video16Tool">
+            <option value="ball">ボール位置</option>
+            <option value="player">選手位置</option>
+            <option value="pass">パス</option>
+            <option value="shot">シュート</option>
+            <option value="heat">ヒートマップ用位置</option>
+          </select>
+        </label>
+        <label>選手
+          <select id="video16OverlayPlayer"><option value="">チーム全体</option></select>
+        </label>
+      </div>
+      <label>メモ
+        <input id="video16OverlayNote" placeholder="例：右サイドから中央へ縦パス">
+      </label>
+      <div class="video16x-help">
+        コートをクリックして記録します。パスとシュートは「始点→終点」の2回クリックです。
+      </div>
+    </section>
+
+    <section class="video16x-card">
+      <div class="video16x-head">
+        <div><span>分析表示</span><h3>縦向きコート</h3></div>
+        <select id="video16Formation" onchange="renderVideo16OverlayPitch()">
+          <option value="3-2-2">3-2-2</option>
+          <option value="2-3-2">2-3-2</option>
+          <option value="3-3-1">3-3-1</option>
+          <option value="2-2-3">2-2-3</option>
+        </select>
+      </div>
+
+      <div class="video16x-layerbar">
+        <label><input type="checkbox" id="v16LayerBall" checked onchange="renderVideo16OverlayPitch()">ボール</label>
+        <label><input type="checkbox" id="v16LayerPlayer" checked onchange="renderVideo16OverlayPitch()">選手</label>
+        <label><input type="checkbox" id="v16LayerPass" checked onchange="renderVideo16OverlayPitch()">パス</label>
+        <label><input type="checkbox" id="v16LayerShot" checked onchange="renderVideo16OverlayPitch()">シュート</label>
+        <label><input type="checkbox" id="v16LayerHeat" checked onchange="renderVideo16OverlayPitch()">ヒートマップ</label>
+      </div>
+
+      <div id="video16OverlayPitch" class="video16x-pitch" onclick="handleVideo16PitchClick(event)"></div>
+
+      <div class="video16x-pitch-actions">
+        <button onclick="autoPlaceVideo16Formation()">登録選手を配置</button>
+        <button class="light" onclick="undoVideo16Overlay()">1つ戻す</button>
+        <button class="light" onclick="clearVideo16MatchOverlay()">この試合の記録を消去</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="video16x-summary-grid">
+    <section class="video16x-card">
+      <div class="video16x-head"><h3>分析数値</h3><button class="light" onclick="renderVideo16OverlaySummary()">再集計</button></div>
+      <div id="video16OverlaySummary" class="video16x-metrics"></div>
+    </section>
+
+    <section class="video16x-card">
+      <div class="video16x-head"><h3>タイムライン</h3><button class="light" onclick="exportVideo16OverlayCsv()">CSV出力</button></div>
+      <div id="video16OverlayTimeline" class="video16x-timeline"></div>
+    </section>
+  </div>
+
+  <div class="video16x-ai">
+    <div class="video16x-head">
+      <div><span>AI連携</span><h3>コート上の記録から分析</h3></div>
+    </div>
+    <div class="video16x-ai-actions">
+      <button onclick="runVideo16OverlayAiAnalysis()">AI試合分析</button>
+      <button class="light" onclick="runVideo16OverlayPlayerReport()">選手別分析</button>
+      <button class="light" onclick="runVideo16OverlayTraining()">次回練習メニュー</button>
+      <button class="light" onclick="runVideo16OverlayReport()">試合後レポート一式</button>
+    </div>
+  </div>
+
+  <div class="coach-safety">
+    <b>現在の分析方式</b>
+    <span>動画ファイルは端末内で再生します。AIが映像を自動追跡するのではなく、コーチがコート上をクリックして記録した位置・パス・シュートを集計し、AI分析へ利用します。</span>
   </div>
 </section>
 <section id="settings" class="page"><div class="card"><h3>🛡 チーム設定</h3><div class="team-preview"><img id="emblemPreview" alt="チームエンブム"><div class="field"><label>チーム名</label><input id="teamName" value="古堅南FC"><label>チームエンブレム画像</label><input id="emblemFile" type="file" accept="image/*" onchange="previewEmblem(this)"><div class="muted">画像は自動で小さくしてSupabaseに保存し、全端末へ同期します。</div><br><button onclick="saveTeamSettings()">チーム設定を保存</button></div></div></div></section>
@@ -189,8 +282,8 @@
 <section id="coach" class="page">
   <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.15.0</span>
-      <h2>AIが考え、コーチは決断する</h2>
+      <span class="coach-version">古堅南FC AI Coach Ver.16.0</span>
+      <h2>動画分析を縦向きコートへ重ねて表示</h2>
       <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
     <div class="coach11-hero-actions">
@@ -569,5 +662,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=16.0.1"></script>
+<script src="./assets/js/app.js?v=16.0.2"></script>
 </body></html>
