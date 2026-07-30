@@ -307,6 +307,105 @@ ${alertText}
 医療判断は行わず、異常がある場合は保護者や医療機関へ相談する前提を明記してください。`;
  coachSendPrompt('training',prompt)
 }
+
+function coach14PrecheckKey(){return 'furugenCoach14Precheck'}
+function saveCoach14Precheck(){
+ const state={};document.querySelectorAll('[data-precheck]').forEach(x=>state[x.dataset.precheck]=x.checked);
+ localStorage.setItem(coach14PrecheckKey(),JSON.stringify(state));
+ updateCoach14Precheck()
+}
+function loadCoach14Precheck(){
+ let state={};try{state=JSON.parse(localStorage.getItem(coach14PrecheckKey())||'{}')}catch(e){}
+ document.querySelectorAll('[data-precheck]').forEach(x=>x.checked=!!state[x.dataset.precheck]);
+ updateCoach14Precheck()
+}
+function updateCoach14Precheck(){
+ const all=[...document.querySelectorAll('[data-precheck]')],done=all.filter(x=>x.checked).length;
+ const bar=$('coach14PrecheckBar'),text=$('coach14PrecheckText');
+ if(bar)bar.style.width=`${all.length?done/all.length*100:0}%`;
+ if(text)text.textContent=`${done} / ${all.length} 完了`
+}
+function renderCoach14Dashboard(){
+ const tasks=$('coach14Tasks'),fair=$('coach14Fairness'),growth=$('coach14Growth');
+ if(tasks){
+  const items=[];
+  const latest=matches[0];
+  if(!latest)items.push(['danger','試合データを登録してください']);
+  else{
+   const recs=records.filter(r=>String(r.match_id)===String(latest.id));
+   if(!recs.some(r=>r.played))items.push(['danger','直近試合の出場選手が未登録です']);
+   if(!latest.memo)items.push(['warn','直近試合のコーチメモが未入力です']);
+  }
+  const noGoals=players.filter(p=>p.status==='現役'&&!p.development_goal).length;
+  if(noGoals)items.push(['info',`成長目標が未入力の現役選手が${noGoals}人います`]);
+  const noPos=players.filter(p=>p.status==='現役'&&!p.position).length;
+  if(noPos)items.push(['warn',`ポジション未設定の現役選手が${noPos}人います`]);
+  if(!items.length)items.push(['ok','今日の優先タスクはありません']);
+  tasks.innerHTML=items.map(([level,text],i)=>`<div class="coach14-task ${level}"><span>${i+1}</span><b>${esc(text)}</b></div>`).join('')
+ }
+ if(fair){
+  const rows=players.filter(p=>p.status==='現役').map(p=>({p,t:totals(p)})).sort((a,b)=>a.t.minutes-b.t.minutes);
+  const low=rows.slice(0,5);
+  fair.innerHTML=low.length?low.map(x=>`<div><b>${esc(x.p.name)}</b><span>${x.t.minutes}分</span></div>`).join(''):'<div class="muted">対象選手がいません。</div>'
+ }
+ if(growth){
+  const rows=players.map(p=>({p,t:totals(p)})).sort((a,b)=>(b.t.goals+b.t.assists)-(a.t.goals+a.t.assists)).slice(0,5);
+  growth.innerHTML=rows.length?rows.map(x=>`<div><b>${esc(x.p.name)}</b><span>得点${x.t.goals}・アシスト${x.t.assists}</span></div>`).join(''):'<div class="muted">成績データがありません。</div>'
+ }
+ loadCoach14Precheck()
+}
+function runCoach14FairnessReport(){
+ const rows=players.filter(p=>p.status==='現役').map(p=>{const t=totals(p);return `${p.name} ${p.grade} ${p.position} 出場${t.apps} 総時間${t.minutes}分`}).join('\n');
+ const prompt=`次の選手出場状況から、育成機会の偏りを整理してください。
+${rows}
+
+次の順で作成してください。
+1. 出場時間が少ない選手
+2. 負担が大きい選手
+3. 次回の配慮案
+4. GPを含むポジション上の注意
+5. 最終判断で確認すべき体調・本人の気持ち`;
+ coachSendPrompt('lineup',prompt)
+}
+function runCoach14GrowthReport(){
+ const rows=players.map(p=>{const t=totals(p);return `${p.name} 出場${t.apps} 時間${t.minutes} 得点${t.goals} アシスト${t.assists} 強み:${p.strengths||'-'} 目標:${p.development_goal||'-'}`}).join('\n');
+ const prompt=`古堅南FCの選手成長サマリーを作成してください。
+${rows}
+
+得点・アシストだけでなく、出場機会、役割、強み、目標も考慮し、
+・最近伸びている選手候補
+・努力が見える選手候補
+・次に声をかけたい選手
+・チーム全体の育成課題
+を前向きに整理してください。`;
+ coachSendPrompt('season',prompt)
+}
+function buildCoach14DailyBrief(){
+ const latest=matches[0],alerts=$('coach12Alerts')?.innerText||'特記事項なし';
+ const pre=[...document.querySelectorAll('[data-precheck]')].filter(x=>!x.checked).map(x=>x.parentElement?.innerText.trim()).filter(Boolean);
+ const text=[
+  '【今日のコーチ向け要約】',
+  latest?`直近試合：${latest.match_date||''} 対 ${latest.opponent||'未設定'} ${latest.goals_for||0}-${latest.goals_against||0}`:'直近試合：未登録',
+  `注意事項：${alerts}`,
+  `未完了チェック：${pre.join('、')||'なし'}`,
+  '次にやること：試合記録確認 → 選手評価 → AI試合診断 → 保護者連絡'
+ ].join('\n');
+ const area=$('coach14DailyBrief');if(area)area.value=text;
+ return text
+}
+async function copyCoach14DailyBrief(){
+ const text=$('coach14DailyBrief')?.value||buildCoach14DailyBrief();
+ try{await navigator.clipboard.writeText(text);showMessage('今日の要約をコピーしました。','ok')}
+ catch(e){showMessage('要約を表示しました。手動でコピーしてください。')}
+}
+function sendCoach14BriefToAi(){
+ const text=$('coach14DailyBrief')?.value||buildCoach14DailyBrief();
+ const prompt=`次のコーチ向け要約を、今日の行動計画に整理してください。
+${text}
+
+優先順位、所要時間、担当、確認事項の順で簡潔にまとめてください。`;
+ coachSendPrompt('season',prompt)
+}
 function switchCoach11Mode(mode,btn){
  document.querySelectorAll('.coach11-panel').forEach(x=>x.classList.add('hidden'));
  const panel=$(`coach11-${mode}`);if(panel)panel.classList.remove('hidden');
@@ -404,7 +503,8 @@ function renderAiCoachDashboard(){
   if(current)psel.value=current
  }
  renderCoach13PlayerCard();
- renderCoach13TeamFocus()
+ renderCoach13TeamFocus();
+ renderCoach14Dashboard()
 }
 function runCoachMatchDiagnosis(){
  const id=$('coachMatchSelect')?.value,m=matches.find(x=>String(x.id)===String(id));
