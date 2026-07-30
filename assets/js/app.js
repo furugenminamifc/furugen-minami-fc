@@ -112,7 +112,7 @@ function renderMatchEvaluationInputs(){
     ${evalRatingControl('運動量','eval-work',e.work_rate)}
     ${evalRatingControl('声かけ','eval-communication',e.communication)}
    </div>
-   <div class="eval-comment-grid">
+   <div class="eval-comment-grid" oninput="updateEvaluationProgress()">
     <label>良かったところ<textarea class="eval-good" placeholder="良かったプレー、成長した点">${esc(e.good_points||'')}</textarea></label>
     <label>改善したいところ<textarea class="eval-improve" placeholder="次に意識してほしいこと">${esc(e.improvement_points||'')}</textarea></label>
     <label>次の具体目標<textarea class="eval-goal" placeholder="例：受ける前に2回首を振る">${esc(e.next_goal||'')}</textarea></label>
@@ -122,13 +122,56 @@ function renderMatchEvaluationInputs(){
     <button type="button" class="light" onclick="fillQuickPositiveComment('${playerId}')">✨ 前向きコメント例</button>
    </div>
   </details>`
- }).join('')
+ }).join('');
+ updateEvaluationProgress()
 }
 function evalRatingControl(label,cls,value=3){
  const v=Number(value)||3;
  return `<label class="eval-rating-item"><span>${label}</span>
   <select class="${cls}">${[1,2,3,4,5].map(n=>`<option value="${n}" ${v===n?'selected':''}>${'★'.repeat(n)}${'☆'.repeat(5-n)} ${n}</option>`).join('')}</select>
  </label>`
+}
+function visibleEvalCards(){return [...document.querySelectorAll('.match-eval-input[data-player]')]}
+function applyEvaluationToCard(card,value){
+ card.querySelectorAll('.eval-grid select').forEach(s=>s.value=String(value));
+ updateLiveOverall(card)
+}
+function setAllVisibleEvaluation(value){
+ const cards=visibleEvalCards();cards.forEach(card=>applyEvaluationToCard(card,value));
+ showMessage(`表示中の${cards.length}人を評価${value}に設定しました。`,'ok');
+ updateEvaluationProgress()
+}
+function setPlayedEvaluation(value){
+ const playedIds=new Set([...document.querySelectorAll('.player-entry[data-player]')]
+  .filter(el=>el.querySelector('.played')?.checked)
+  .map(el=>String(el.dataset.player)));
+ const cards=visibleEvalCards().filter(card=>playedIds.has(String(card.dataset.player)));
+ cards.forEach(card=>applyEvaluationToCard(card,value));
+ showMessage(`出場選手${cards.length}人を評価${value}に設定しました。`,'ok');
+ updateEvaluationProgress()
+}
+function clearAllEvaluationComments(){
+ if(!confirm('表示中の選手のコメントをすべて空にしますか？'))return;
+ visibleEvalCards().forEach(card=>{
+  card.querySelector('.eval-good').value='';
+  card.querySelector('.eval-improve').value='';
+  card.querySelector('.eval-goal').value=''
+ });
+ showMessage('表示中のコメントを空にしました。','ok');
+ updateEvaluationProgress()
+}
+function updateEvaluationProgress(){
+ const cards=visibleEvalCards(),text=$('evalProgressText'),bar=$('evalProgressBar');
+ if(!text||!bar)return;
+ const commented=cards.filter(card=>{
+  const good=card.querySelector('.eval-good')?.value.trim();
+  const improve=card.querySelector('.eval-improve')?.value.trim();
+  const goal=card.querySelector('.eval-goal')?.value.trim();
+  return good||improve||goal
+ }).length;
+ const pct=cards.length?Math.round((commented/cards.length)*100):0;
+ text.textContent=`評価対象 ${cards.length}人 ／ コメント入力 ${commented}人`;
+ bar.style.width=`${pct}%`
 }
 function openAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=true)}
 function closeAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=false)}
