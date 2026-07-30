@@ -28,13 +28,164 @@ function openPlayerModal(id=''){const p=players.find(x=>String(x.id)===String(id
 function closePlayerModal(){$('playerModal').classList.add('hidden')}
 function playerAge(date){if(!date)return '';const b=new Date(date),n=new Date();let a=n.getFullYear()-b.getFullYear();if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate()))a--;return a>=0?`${a}歳`:''}
 function levelLabel(v,type){const n=Number(v)||3;return type==='fatigue'?['','とても元気','元気','普通','疲れ気味','強い疲労'][n]:['','低い','やや低い','普通','良い','とても良い'][n]}
-function openPlayerDetail(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;const t=totals(p),pv=privateForPlayer(id);const recent=records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||'')).slice(0,6);const staff=isStaff();$('playerDetailContent').innerHTML=`<div class="player-profile-head"><img src="${esc(p.photo_url||defaultAvatar())}" alt=""><div><h2>${esc(p.name)} ${p.number?`<span class="pill">#${esc(p.number)}</span>`:''}</h2><div class="muted">${esc(p.grade||'学年未設定')} / ${esc(p.position||'ポジション未設定')} / ${esc(p.status||'')}</div><div class="player-tags">${p.dominant_foot?`<span class="pill">利き足 ${esc(p.dominant_foot)}</span>`:''}${p.birth_date?`<span class="pill">${esc(playerAge(p.birth_date))}</span>`:''}${p.height_cm?`<span class="pill">${p.height_cm}cm</span>`:''}${p.weight_kg?`<span class="pill">${p.weight_kg}kg</span>`:''}</div></div></div>
-<div class="player-stat-grid">${[['出場',t.apps],['出場時間',t.minutes+'分'],['得点',t.goals],['アシスト',t.assists],['MVP',t.mvp],['警告',t.yellow],['退場',t.red]].map(x=>`<div class="player-stat"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>
-<div class="detail-columns"><div class="detail-panel"><h4>🌱 強み</h4><div class="detail-text">${esc(p.strengths||'未入力')}</div></div><div class="detail-panel"><h4>🎯 次の成長目標</h4><div class="detail-text">${esc(p.development_goal||'未入力')}</div></div></div>
-${staff?`<div class="detail-columns"><div class="detail-panel"><h4>📈 コンディション</h4><p>疲労度：<b>${esc(levelLabel(pv.fatigue_level,'fatigue'))}</b></p><p>調子：<b>${esc(levelLabel(pv.condition_level,'condition'))}</b></p><div class="detail-text">${esc(pv.coach_note||'コーチメモ未入力')}</div></div><div class="detail-panel private-panel"><h4>🔒 保護者・緊急連絡</h4><p>保護者：${esc(pv.guardian_name||'未入力')}</p><p>電話：${esc(pv.guardian_phone||'未入力')}</p><p>メール：${esc(pv.guardian_email||'未入力')}</p><p>緊急：${esc(pv.emergency_contact||'未入力')}</p></div></div>`:''}
-<h4>最近の出場試合</h4><div class="recent-player-matches">${recent.length?recent.map(x=>`<div class="recent-player-match"><div><b>${esc(x.m.match_date||'')}</b> ${esc(x.m.opponent||'')}</div><div>${x.r.minutes||0}分 / ${x.r.goals||0}得点 / ${x.r.assists||0}アシスト${x.r.mvp?' / ⭐MVP':''}</div></div>`).join(''):'<div class="muted">出場記録はありません。</div>'}</div>
-<div class="modal-actions"><button onclick="preparePlayerDetailAi('${p.id}')">🤖 AI評価を作る</button>${staff?`<button class="light" onclick="closePlayerDetail();openPlayerModal('${p.id}')">編集</button>`:''}<button class="secondary" onclick="closePlayerDetail()">閉じる</button></div>`;$('playerDetailModal').classList.remove('hidden')}
-function closePlayerDetail(){$('playerDetailModal').classList.add('hidden')}
+let activePlayerDetailId='',playerGrowthChart=null;
+function playerMatchRows(id){return records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||''))}
+function playerDetailTabButton(id,label,icon,staffOnly=false){if(staffOnly&&!isStaff())return '';return `<button class="player-detail-tab" data-player-tab="${id}" onclick="switchPlayerDetailTab('${id}',this)">${icon} ${label}</button>`}
+function openPlayerDetail(id){
+ const p=players.find(x=>String(x.id)===String(id));if(!p)return;
+ activePlayerDetailId=String(id);
+ const t=totals(p),pv=privateForPlayer(id),rows=playerMatchRows(id),staff=isStaff();
+ const avgMinutes=t.apps?Math.round(t.minutes/t.apps):0;
+ const goalRate=t.apps?(t.goals/t.apps).toFixed(2):'0.00';
+ const assistRate=t.apps?(t.assists/t.apps).toFixed(2):'0.00';
+ $('playerDetailContent').innerHTML=`
+ <div class="player-profile-head">
+   <img src="${esc(p.photo_url||defaultAvatar())}" alt="">
+   <div>
+     <h2>${esc(p.name)} ${p.number?`<span class="pill">#${esc(p.number)}</span>`:''}</h2>
+     <div class="muted">${esc(p.grade||'学年未設定')} / ${esc(p.position||'ポジション未設定')} / ${esc(p.status||'')}</div>
+     <div class="player-tags">
+       ${p.dominant_foot?`<span class="pill">利き足 ${esc(p.dominant_foot)}</span>`:''}
+       ${p.birth_date?`<span class="pill">${esc(playerAge(p.birth_date))}</span>`:''}
+       ${p.height_cm?`<span class="pill">${p.height_cm}cm</span>`:''}
+       ${p.weight_kg?`<span class="pill">${p.weight_kg}kg</span>`:''}
+     </div>
+   </div>
+ </div>
+
+ <div class="player-detail-tabs" role="tablist">
+   ${playerDetailTabButton('basic','基本情報','👤')}
+   ${playerDetailTabButton('results','試合成績','📊')}
+   ${playerDetailTabButton('growth','成長グラフ','📈')}
+   ${playerDetailTabButton('ai','AI分析','🤖')}
+   ${playerDetailTabButton('condition','コンディション','🩺',true)}
+   ${playerDetailTabButton('guardian','保護者情報','👨‍👩‍👧',true)}
+ </div>
+
+ <div id="playerTab-basic" class="player-tab-panel">
+   <div class="player-stat-grid">
+     ${[['出場',t.apps],['出場時間',t.minutes+'分'],['得点',t.goals],['アシスト',t.assists],['MVP',t.mvp],['警告',t.yellow],['退場',t.red]].map(x=>`<div class="player-stat"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}
+   </div>
+   <div class="detail-columns">
+     <div class="detail-panel"><h4>🌱 強み</h4><div class="detail-text">${esc(p.strengths||'未入力')}</div></div>
+     <div class="detail-panel"><h4>🎯 次の成長目標</h4><div class="detail-text">${esc(p.development_goal||'未入力')}</div></div>
+   </div>
+   <div class="detail-panel player-basic-info">
+     <h4>基本プロフィール</h4>
+     <div class="profile-info-grid">
+       <div><span>生年月日</span><b>${esc(p.birth_date||'未設定')}</b></div>
+       <div><span>利き足</span><b>${esc(p.dominant_foot||'未設定')}</b></div>
+       <div><span>身長</span><b>${p.height_cm?`${p.height_cm} cm`:'未設定'}</b></div>
+       <div><span>体重</span><b>${p.weight_kg?`${p.weight_kg} kg`:'未設定'}</b></div>
+     </div>
+   </div>
+ </div>
+
+ <div id="playerTab-results" class="player-tab-panel hidden">
+   <div class="player-summary-cards">
+     <div class="summary-card"><span>1試合平均時間</span><b>${avgMinutes}分</b></div>
+     <div class="summary-card"><span>1試合平均得点</span><b>${goalRate}</b></div>
+     <div class="summary-card"><span>1試合平均アシスト</span><b>${assistRate}</b></div>
+     <div class="summary-card"><span>記録済み試合</span><b>${rows.length}</b></div>
+   </div>
+   <div class="table player-result-table"><table>
+     <thead><tr><th>日付</th><th>大会</th><th>対戦相手</th><th>時間</th><th>得点</th><th>アシスト</th><th>MVP</th></tr></thead>
+     <tbody>${rows.length?rows.map(x=>`<tr><td>${esc(x.m.match_date||'')}</td><td>${esc(x.m.competition||'')}</td><td>${esc(x.m.opponent||'')}</td><td>${x.r.minutes||0}分</td><td>${x.r.goals||0}</td><td>${x.r.assists||0}</td><td>${x.r.mvp?'⭐':''}</td></tr>`).join(''):'<tr><td colspan="7" class="muted">出場記録はありません。</td></tr>'}</tbody>
+   </table></div>
+ </div>
+
+ <div id="playerTab-growth" class="player-tab-panel hidden">
+   <div class="detail-panel">
+     <div class="section-title"><h4>試合ごとの成長推移</h4><span class="muted">直近20試合</span></div>
+     <div class="player-growth-wrap"><canvas id="playerGrowthCanvas"></canvas></div>
+   </div>
+   <div class="muted player-chart-note">出場時間・得点・アシストを試合順に表示します。記録を入力すると自動で更新されます。</div>
+ </div>
+
+ <div id="playerTab-ai" class="player-tab-panel hidden">
+   <div class="ai-player-summary">
+     <h4>🤖 AIへ渡す育成データ</h4>
+     <div class="detail-text">学年：${esc(p.grade||'未設定')}
+ポジション：${esc(p.position||'未設定')}
+強み：${esc(p.strengths||'未入力')}
+次の目標：${esc(p.development_goal||'未入力')}
+出場：${t.apps}試合・${t.minutes}分
+得点：${t.goals}　アシスト：${t.assists}　MVP：${t.mvp}</div>
+   </div>
+   <div class="ai-player-actions">
+     <button onclick="preparePlayerDetailAi('${p.id}')">AI育成評価を作成</button>
+     <button class="light" onclick="copyPlayerSummary('${p.id}')">データをコピー</button>
+   </div>
+   <div class="notice">AIの回答は育成の参考案です。最終判断と本人への伝え方は、指導者が確認してください。</div>
+ </div>
+
+ ${staff?`<div id="playerTab-condition" class="player-tab-panel hidden">
+   <div class="condition-meter-grid">
+     <div class="condition-card"><span>疲労度</span><b>${esc(levelLabel(pv.fatigue_level,'fatigue'))}</b><div class="meter"><i style="width:${Math.min(100,(Number(pv.fatigue_level)||3)*20)}%"></i></div></div>
+     <div class="condition-card"><span>調子</span><b>${esc(levelLabel(pv.condition_level,'condition'))}</b><div class="meter positive"><i style="width:${Math.min(100,(Number(pv.condition_level)||3)*20)}%"></i></div></div>
+   </div>
+   <div class="detail-panel"><h4>コーチメモ</h4><div class="detail-text">${esc(pv.coach_note||'未入力')}</div></div>
+   <div class="modal-actions"><button class="light" onclick="closePlayerDetail();openPlayerModal('${p.id}')">状態を編集</button></div>
+ </div>
+
+ <div id="playerTab-guardian" class="player-tab-panel hidden">
+   <div class="detail-panel private-panel">
+     <h4>🔒 保護者・緊急連絡</h4>
+     <div class="guardian-grid">
+       <div><span>保護者氏名</span><b>${esc(pv.guardian_name||'未入力')}</b></div>
+       <div><span>電話番号</span><b>${esc(pv.guardian_phone||'未入力')}</b></div>
+       <div><span>メール</span><b>${esc(pv.guardian_email||'未入力')}</b></div>
+       <div><span>緊急連絡先</span><b>${esc(pv.emergency_contact||'未入力')}</b></div>
+     </div>
+   </div>
+   <div class="notice warn">この情報は管理者・コーチだけが閲覧できます。画面共有や印刷時の取り扱いに注意してください。</div>
+   <div class="modal-actions"><button class="light" onclick="closePlayerDetail();openPlayerModal('${p.id}')">連絡先を編集</button></div>
+ </div>`:''}
+
+ <div class="modal-actions player-detail-footer">
+   ${staff?`<button class="light" onclick="closePlayerDetail();openPlayerModal('${p.id}')">編集</button>`:''}
+   <button class="secondary" onclick="closePlayerDetail()">閉じる</button>
+ </div>`;
+ $('playerDetailModal').classList.remove('hidden');
+ const first=$('playerDetailContent').querySelector('[data-player-tab="basic"]');if(first)switchPlayerDetailTab('basic',first);
+}
+function switchPlayerDetailTab(tab,button){
+ document.querySelectorAll('#playerDetailContent .player-tab-panel').forEach(x=>x.classList.add('hidden'));
+ document.querySelectorAll('#playerDetailContent .player-detail-tab').forEach(x=>x.classList.remove('active'));
+ const panel=$('playerTab-'+tab);if(panel)panel.classList.remove('hidden');if(button)button.classList.add('active');
+ if(tab==='growth')setTimeout(()=>renderPlayerGrowthChart(activePlayerDetailId),30);
+}
+function renderPlayerGrowthChart(id){
+ if(!window.Chart)return;
+ const rows=[...playerMatchRows(id)].reverse().slice(-20);
+ const canvas=$('playerGrowthCanvas');if(!canvas)return;
+ if(playerGrowthChart)playerGrowthChart.destroy();
+ playerGrowthChart=new Chart(canvas,{type:'line',data:{
+   labels:rows.map(x=>(x.m.match_date||'').slice(5)+' '+(x.m.opponent||'')),
+   datasets:[
+     {label:'出場時間（分）',data:rows.map(x=>x.r.minutes||0),yAxisID:'y'},
+     {label:'得点',data:rows.map(x=>x.r.goals||0),yAxisID:'y1'},
+     {label:'アシスト',data:rows.map(x=>x.r.assists||0),yAxisID:'y1'}
+   ]},
+   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+   scales:{y:{beginAtZero:true,title:{display:true,text:'出場時間'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{precision:0},title:{display:true,text:'得点・アシスト'}}},
+   plugins:{legend:{position:'bottom'}}}
+ });
+}
+function copyPlayerSummary(id){
+ const p=players.find(x=>String(x.id)===String(id));if(!p)return;const t=totals(p);
+ const text=`${p.name} 選手データ
+学年：${p.grade||'未設定'}
+ポジション：${p.position||'未設定'}
+出場：${t.apps}試合 / ${t.minutes}分
+得点：${t.goals}
+アシスト：${t.assists}
+MVP：${t.mvp}
+強み：${p.strengths||'未入力'}
+次の成長目標：${p.development_goal||'未入力'}`;
+ navigator.clipboard.writeText(text).then(()=>showMessage('選手データをコピーしました。','ok')).catch(()=>showMessage('コピーできませんでした。'));
+}
+function closePlayerDetail(){if(playerGrowthChart){playerGrowthChart.destroy();playerGrowthChart=null}$('playerDetailModal').classList.add('hidden')}
 function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p);setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
 async function savePlayer(){if(!isStaff())return;const name=$('editName').value.trim();if(!name){showMessage('名前を入力してください。');return}const id=$('editPlayerId').value||('P'+Date.now().toString(36));const data={id,name,photo_url:$('editPhotoData').value||null,number:$('editNumber').value.trim(),grade:$('editGrade').value.trim(),birth_date:$('editBirthDate').value||null,position:$('editPosition').value.trim(),dominant_foot:$('editDominantFoot').value,height_cm:+$('editHeight').value||null,weight_kg:+$('editWeight').value||null,status:$('editStatus').value,strengths:$('editStrengths').value.trim(),development_goal:$('editDevelopmentGoal').value.trim(),past_apps:+$('editPastApps').value||0,past_goals:+$('editPastGoals').value||0,past_assists:+$('editPastAssists').value||0,past_yellow:+$('editPastYellow').value||0,past_red:+$('editPastRed').value||0,updated_at:new Date().toISOString()};const r=await sb.from('players').upsert(data);if(r.error){showMessage(r.error.message);return}const privateData={player_id:String(id),fatigue_level:+$('editFatigue').value||3,condition_level:+$('editCondition').value||3,coach_note:$('editCoachNote').value.trim(),guardian_name:$('editGuardianName').value.trim(),guardian_phone:$('editGuardianPhone').value.trim(),guardian_email:$('editGuardianEmail').value.trim(),emergency_contact:$('editEmergencyContact').value.trim(),updated_at:new Date().toISOString()};const pr=await sb.from('player_private').upsert(privateData);if(pr.error){showMessage('基本情報は保存しましたが、非公開情報の保存に失敗しました：'+pr.error.message);return}closePlayerModal();showMessage('選手詳細を保存しました。','ok');await loadAll()}
 async function deletePlayer(id){if(!isStaff())return;const p=players.find(x=>x.id===id);if(!p||!confirm(`「${p.name}」を削除しますか？\nこの選手の試合記録もすべて削除されます。`))return;const rr=await sb.from('records').delete().eq('player_id',id);if(rr.error){showMessage('選手記録の削除エラー：'+rr.error.message);return}const r=await sb.from('players').delete().eq('id',id);if(r.error)showMessage(r.error.message);else{showMessage('選手を削除しました。','ok');await loadAll()}}

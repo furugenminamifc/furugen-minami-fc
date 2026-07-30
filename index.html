@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC Ver.7.1</title>
+<title>古堅南FC Ver.7.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=7.0.0">
+<link rel="stylesheet" href="./assets/css/app.css?v=7.2.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC Ver.7.1</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC Ver.7.2</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -202,5 +202,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=7.1.0"></script>
+<script src="./assets/js/app.js?v=7.2.0"></script>
 </body></html>

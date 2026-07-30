@@ -57,3 +57,34 @@ main{max-width:1180px;margin:auto;padding:14px}.page{display:none}.page.show{dis
 .detail-columns{grid-template-columns:1fr}
 .recent-player-match{flex-direction:column;gap:3px}
 }
+
+
+/* Ver.7.2 選手詳細タブ画面 */
+.player-detail-tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 0 10px;border-bottom:1px solid var(--line);margin-bottom:14px;scrollbar-width:thin}
+.player-detail-tab{white-space:nowrap;background:#e2e8f0;color:#334155;border:1px solid #cbd5e1;padding:9px 13px;border-radius:999px}
+.player-detail-tab.active{background:var(--deep);color:#fff;border-color:var(--deep)}
+.player-tab-panel{animation:playerTabIn .18s ease}
+@keyframes playerTabIn{from{opacity:.35;transform:translateY(3px)}to{opacity:1;transform:none}}
+.player-basic-info{margin-top:10px}
+.profile-info-grid,.guardian-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.profile-info-grid>div,.guardian-grid>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+.profile-info-grid span,.guardian-grid span{display:block;color:#64748b;font-size:12px;margin-bottom:4px}
+.player-summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.summary-card{border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:12px;text-align:center}
+.summary-card span{display:block;color:#64748b;font-size:12px}.summary-card b{font-size:22px;color:var(--deep)}
+.player-result-table{max-height:360px}
+.player-growth-wrap{height:360px;position:relative}
+.player-chart-note{margin-top:8px}
+.ai-player-summary{border:1px solid #bae6fd;background:#f0f9ff;border-radius:12px;padding:14px}
+.ai-player-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.condition-meter-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.condition-card{border:1px solid var(--line);border-radius:12px;padding:13px;background:#f8fafc}
+.condition-card span{display:block;color:#64748b}.condition-card b{font-size:20px}
+.meter{height:9px;background:#e2e8f0;border-radius:999px;margin-top:9px;overflow:hidden}.meter i{display:block;height:100%;background:#f97316;border-radius:999px}.meter.positive i{background:#22c55e}
+.player-detail-footer{border-top:1px solid var(--line);padding-top:14px}
+.notice.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+@media(max-width:760px){
+ .profile-info-grid,.guardian-grid,.player-summary-cards{grid-template-columns:repeat(2,1fr)}
+ .condition-meter-grid{grid-template-columns:1fr}
+ .player-growth-wrap{height:300px}
+}
