@@ -154,3 +154,23 @@ img[loading="lazy"]{content-visibility:auto}
  .match-eval-summary{grid-template-columns:repeat(2,1fr)}
  .match-eval-chart-wrap{height:280px}
 }
+
+
+/* Ver.9.1 試合画面から評価入力 */
+.match-eval-editor-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:24px 0 10px;padding-top:16px;border-top:2px solid var(--line)}
+.match-eval-editor-head h4{margin:0 0 4px}
+.eval-empty{padding:18px;border:1px dashed var(--line);border-radius:10px;text-align:center}
+.match-eval-input{border:1px solid var(--line);border-radius:12px;background:#fff;margin:8px 0;overflow:hidden}
+.match-eval-input summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;cursor:pointer;background:#f8fafc}
+.match-eval-input summary small{color:#64748b;margin-left:6px}
+.eval-summary-score{background:#e0e7ff;color:#3730a3;border-radius:999px;padding:5px 10px;font-size:12px}
+.match-eval-input[open]{padding-bottom:12px}
+.eval-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px}
+.eval-grid label{font-size:12px;color:#475569}
+.eval-grid select{display:block;width:100%;margin-top:4px}
+.match-eval-input>label{display:block;padding:0 12px 10px;font-size:13px;font-weight:600}
+.match-eval-input textarea{display:block;width:100%;margin-top:5px;min-height:68px;font-weight:400}
+@media(max-width:760px){
+ .match-eval-editor-head{align-items:flex-start;flex-direction:column}
+ .eval-grid{grid-template-columns:repeat(2,1fr)}
+}
