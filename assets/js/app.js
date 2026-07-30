@@ -2161,7 +2161,9 @@ function renderVideo171SyncedPitch(){
   const playerRows=rows.filter(x=>['player','homeAuto','awayAuto'].includes(x.type));
   playerRows.forEach((x,i)=>{
    const cls=x.type==='awayAuto'?'away':'home';
-   html.push(`<div class="v171-player ${cls}" style="left:${x.x}%;top:${x.y}%;opacity:${Math.max(.25,(i+1)/playerRows.length)}"><span></span></div>`)
+   const p=players.find(a=>String(a.id)===String(x.player_id));
+   const label=x.type==='awayAuto'?'相':(p?.name||'古');
+   html.push(`<div class="v171-player ${cls}" style="left:${x.x}%;top:${x.y}%;opacity:${Math.max(.3,(i+1)/playerRows.length)}"><span>${esc(label).slice(0,2)}</span></div>`)
   })
  }
  if(showPass){
@@ -2172,6 +2174,9 @@ function renderVideo171SyncedPitch(){
  }
  const latestBall=ballRows[ballRows.length-1];
  if(latestBall)html.push(`<div class="v171-ball" style="left:${latestBall.x}%;top:${latestBall.y}%">⚽</div>`);
+ const current=video171Video()?.currentTime||0;
+ html.push(`<div class="v172-court-time">${video171Format(current)}</div>`);
+ html.push(`<div class="v172-legend"><span class="home">古堅南FC</span><span class="away">相手</span><span class="pass">パス</span><span class="shot">シュート</span></div>`);
  pitch.innerHTML=html.join('')
 }
 function video171Line(x,kind){

@@ -746,3 +746,129 @@ img[loading="lazy"]{content-visibility:auto}
 .video171-events{display:grid;gap:7px;max-height:620px;overflow:auto}.video171-event{display:grid;grid-template-columns:70px 80px 110px 1fr;gap:7px;padding:8px;border-bottom:1px solid #e2e8f0}.video171-event em{font-style:normal}
 @media(max-width:900px){.video171-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.video171-controls,.video171-layers{display:grid;grid-template-columns:1fr 1fr}.video171-timeline-wrap{grid-template-columns:1fr}.video171-time{justify-content:flex-start}.video171-event{grid-template-columns:65px 1fr}.video171-event em,.video171-event small{grid-column:2}}
+
+
+/* Ver.17.2 ペナルティアーク修正 */
+/* AI戦術ボード */
+.coach15-pitch .pitch-arc{
+  position:absolute !important;
+  left:50% !important;
+  width:22% !important;
+  height:6.2% !important;
+  aspect-ratio:auto !important;
+  border:2px solid rgba(255,255,255,.95) !important;
+  transform:translateX(-50%) !important;
+  pointer-events:none !important;
+}
+.coach15-pitch .pitch-arc-top{
+  top:18.15% !important;
+  bottom:auto !important;
+  border-top:0 !important;
+  border-radius:0 0 50% 50% !important;
+}
+.coach15-pitch .pitch-arc-bottom{
+  bottom:18.15% !important;
+  top:auto !important;
+  border-bottom:0 !important;
+  border-radius:50% 50% 0 0 !important;
+}
+
+/* 動画分析縦向きコートにも正しいペナルティアークを追加 */
+.video16x-pitch::before,
+.video16x-pitch::after,
+.video171-pitch::before,
+.video171-pitch::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  width:22%;
+  height:6.2%;
+  border:2px solid rgba(255,255,255,.95);
+  transform:translateX(-50%);
+  pointer-events:none;
+  z-index:2;
+}
+.video16x-pitch::before,
+.video171-pitch::before{
+  top:18.15%;
+  border-top:0;
+  border-radius:0 0 50% 50%;
+}
+.video16x-pitch::after,
+.video171-pitch::after{
+  bottom:18.15%;
+  border-bottom:0;
+  border-radius:50% 50% 0 0;
+}
+
+/* ペナルティエリア・ゴール比率微調整 */
+.coach15-pitch .pitch-box,
+.video16x-pitch .v16-box,
+.video171-pitch .v171-box{
+  left:20% !important;
+  width:60% !important;
+  height:15.7% !important;
+}
+.coach15-pitch .pitch-goalbox,
+.video16x-pitch .v16-smallbox,
+.video171-pitch .v171-smallbox{
+  left:35% !important;
+  width:30% !important;
+  height:6.8% !important;
+}
+.coach15-pitch .pitch-goal,
+.video16x-pitch .v16-goal,
+.video171-pitch .v171-goal{
+  left:42% !important;
+  width:16% !important;
+  height:2.2% !important;
+}
+
+/* Ver.17.2 同期表示 */
+.v171-player span{
+  display:grid;
+  place-items:center;
+  min-width:22px;
+  height:22px;
+  padding:0 4px;
+  border:2px solid #fff;
+  color:#fff;
+  font-size:9px;
+  font-weight:800;
+  border-radius:999px;
+  white-space:nowrap;
+}
+.v172-court-time{
+  position:absolute;
+  right:10px;
+  top:10px;
+  z-index:20;
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(15,23,42,.78);
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+}
+.v172-legend{
+  position:absolute;
+  left:10px;
+  bottom:10px;
+  z-index:20;
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+  padding:6px;
+  border-radius:10px;
+  background:rgba(255,255,255,.9);
+}
+.v172-legend span{
+  padding:3px 6px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:800;
+}
+.v172-legend .home{background:#dbeafe;color:#1d4ed8}
+.v172-legend .away{background:#fee2e2;color:#b91c1c}
+.v172-legend .pass{background:#cffafe;color:#0e7490}
+.v172-legend .shot{background:#ffe4e6;color:#be123c}

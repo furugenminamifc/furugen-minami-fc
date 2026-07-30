@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.17.1</title>
+<title>古堅南FC AI Coach Ver.17.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=17.1.0">
+<link rel="stylesheet" href="./assets/css/app.css?v=17.2.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.17.1</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.17.2</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -173,7 +173,7 @@
 <section id="video" class="page">
   <div class="video16x-hero">
     <div>
-      <span>古堅南FC AI Coach Ver.17.1</span>
+      <span>古堅南FC AI Coach Ver.17.2</span>
       <h2>🎥 動画分析 × 縦向きコート</h2>
       <p>動画を再生しながら、ボール位置・選手位置・パス・シュートを記録し、ヒートマップとして重ねて表示します。</p>
     </div>
@@ -332,7 +332,7 @@
   <div class="video17-engine">
     <div class="video17-head">
       <div>
-        <span>古堅南FC AI Coach Ver.17.1</span>
+        <span>古堅南FC AI Coach Ver.17.2</span>
         <h3>🧠 AI Vision Engine</h3>
         <p>追跡候補を蓄積し、移動・保持・フォーメーション・ヒートマップを自動集計します。</p>
       </div>
@@ -403,7 +403,7 @@
     <div class="video171-sync">
       <div class="video17-head">
         <div>
-          <span>Ver.17.1</span>
+          <span>Ver.17.2</span>
           <h3>🎬 動画・コート・タイムライン連動</h3>
           <p>動画時間に合わせて、ボール・選手・パス・シュートの表示を自動更新します。</p>
         </div>
@@ -493,8 +493,8 @@
 <section id="coach" class="page">
   <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.17.1</span>
-      <h2>動画とコートをタイムラインで同期</h2>
+      <span class="coach-version">古堅南FC AI Coach Ver.17.2</span>
+      <h2>動画再生と戦術ボードを高精度同期</h2>
       <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
     <div class="coach11-hero-actions">
@@ -873,5 +873,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=17.1.0"></script>
+<script src="./assets/js/app.js?v=17.2.0"></script>
 </body></html>
