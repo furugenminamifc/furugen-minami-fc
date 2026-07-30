@@ -78,38 +78,108 @@ function renderMatchEvaluationInputs(){
  const box=$('matchEvaluationInputs');if(!box)return;
  const draft=currentMatchEvalDrafts();
  const existing=new Map(editingMatchEvaluations.map(x=>[String(x.player_id),x]));
- const selected=[...document.querySelectorAll('.player-entry[data-player]')]
-  .filter(el=>el.querySelector('.played')?.checked)
+ const showAll=$('evalShowAllPlayers')?.checked;
+ const playerEls=[...document.querySelectorAll('.player-entry[data-player]')];
+ const selected=playerEls
+  .filter(el=>showAll||el.querySelector('.played')?.checked)
   .map(el=>String(el.dataset.player));
- if(!selected.length){box.innerHTML='<div class="muted eval-empty">出場選手にチェックすると、評価入力欄が表示されます。</div>';return}
+ if(!selected.length){
+  box.innerHTML=`<div class="eval-empty">
+   <b>評価する選手がまだ選ばれていません。</b>
+   <p>上の選手記録で「出場」にチェックするか、「全選手を表示」をオンにしてください。</p>
+  </div>`;
+  return
+ }
  box.innerHTML=selected.map(playerId=>{
   const p=players.find(x=>String(x.id)===playerId);if(!p)return '';
   const e=draft.get(playerId)||existing.get(playerId)||{};
-  return `<details class="match-eval-input" data-player="${playerId}">
+  const played=playerEls.find(el=>String(el.dataset.player)===playerId)?.querySelector('.played')?.checked;
+  return `<details class="match-eval-input" data-player="${playerId}" ${played?'open':''}>
    <summary>
-    <span><b>${esc(p.name)}</b> <small>${esc(p.grade)} ${esc(p.position)}</small></span>
+    <span class="eval-player-summary">
+      ${p.photo_url?`<img class="eval-avatar" src="${esc(p.photo_url)}" alt="" loading="lazy" decoding="async">`:`<span class="eval-avatar placeholder"></span>`}
+      <span><b>${esc(p.name)}</b><small>${esc(p.grade)} ${esc(p.position)} ${played?'・出場':'・未出場'}</small></span>
+    </span>
     <span class="eval-summary-score">総合 <b class="live-overall">${evaluationOverall(e)}</b></span>
    </summary>
    <div class="eval-grid" oninput="updateLiveOverall(this.closest('.match-eval-input'))">
-    <label>攻撃${evalSelect('eval-attack',e.attack)}</label>
-    <label>守備${evalSelect('eval-defense',e.defense)}</label>
-    <label>パス${evalSelect('eval-passing',e.passing)}</label>
-    <label>ドリブル${evalSelect('eval-dribbling',e.dribbling)}</label>
-    <label>シュート${evalSelect('eval-shooting',e.shooting)}</label>
-    <label>判断力${evalSelect('eval-decision',e.decision_making)}</label>
-    <label>運動量${evalSelect('eval-work',e.work_rate)}</label>
-    <label>声かけ${evalSelect('eval-communication',e.communication)}</label>
+    ${evalRatingControl('攻撃','eval-attack',e.attack)}
+    ${evalRatingControl('守備','eval-defense',e.defense)}
+    ${evalRatingControl('パス','eval-passing',e.passing)}
+    ${evalRatingControl('ドリブル','eval-dribbling',e.dribbling)}
+    ${evalRatingControl('シュート','eval-shooting',e.shooting)}
+    ${evalRatingControl('判断力','eval-decision',e.decision_making)}
+    ${evalRatingControl('運動量','eval-work',e.work_rate)}
+    ${evalRatingControl('声かけ','eval-communication',e.communication)}
    </div>
-   <label>良かったところ<textarea class="eval-good" placeholder="良かったプレー、成長した点">${esc(e.good_points||'')}</textarea></label>
-   <label>改善したいところ<textarea class="eval-improve" placeholder="次に意識してほしいこと">${esc(e.improvement_points||'')}</textarea></label>
-   <label>次の具体目標<textarea class="eval-goal" placeholder="例：受ける前に2回首を振る">${esc(e.next_goal||'')}</textarea></label>
+   <div class="eval-comment-grid">
+    <label>良かったところ<textarea class="eval-good" placeholder="良かったプレー、成長した点">${esc(e.good_points||'')}</textarea></label>
+    <label>改善したいところ<textarea class="eval-improve" placeholder="次に意識してほしいこと">${esc(e.improvement_points||'')}</textarea></label>
+    <label>次の具体目標<textarea class="eval-goal" placeholder="例：受ける前に2回首を振る">${esc(e.next_goal||'')}</textarea></label>
+   </div>
+   <div class="eval-card-actions">
+    <button type="button" class="light" onclick="generateDraftAiAdvice('${playerId}')">🤖 AIアドバイス案</button>
+    <button type="button" class="light" onclick="fillQuickPositiveComment('${playerId}')">✨ 前向きコメント例</button>
+   </div>
   </details>`
  }).join('')
 }
+function evalRatingControl(label,cls,value=3){
+ const v=Number(value)||3;
+ return `<label class="eval-rating-item"><span>${label}</span>
+  <select class="${cls}">${[1,2,3,4,5].map(n=>`<option value="${n}" ${v===n?'selected':''}>${'★'.repeat(n)}${'☆'.repeat(5-n)} ${n}</option>`).join('')}</select>
+ </label>`
+}
+function openAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=true)}
+function closeAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=false)}
 function updateLiveOverall(el){
  if(!el)return;const vals=[...el.querySelectorAll('.eval-grid select')].map(x=>+x.value||0);
  const avg=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):'0.0';
  const out=el.querySelector('.live-overall');if(out)out.textContent=avg
+}
+function matchEvalElement(playerId){return document.querySelector(`.match-eval-input[data-player="${CSS.escape(String(playerId))}"]`)}
+function collectEvalFromElement(el){
+ return {
+  attack:+el.querySelector('.eval-attack').value||3,defense:+el.querySelector('.eval-defense').value||3,
+  passing:+el.querySelector('.eval-passing').value||3,dribbling:+el.querySelector('.eval-dribbling').value||3,
+  shooting:+el.querySelector('.eval-shooting').value||3,decision_making:+el.querySelector('.eval-decision').value||3,
+  work_rate:+el.querySelector('.eval-work').value||3,communication:+el.querySelector('.eval-communication').value||3,
+  good_points:el.querySelector('.eval-good').value.trim(),improvement_points:el.querySelector('.eval-improve').value.trim(),
+  next_goal:el.querySelector('.eval-goal').value.trim()
+ }
+}
+function fillQuickPositiveComment(playerId){
+ const el=matchEvalElement(playerId);if(!el)return;el.open=true;
+ const e=collectEvalFromElement(el),p=players.find(x=>String(x.id)===String(playerId));
+ const scores=[
+  ['攻撃',e.attack],['守備',e.defense],['パス',e.passing],['ドリブル',e.dribbling],
+  ['シュート',e.shooting],['判断力',e.decision_making],['運動量',e.work_rate],['声かけ',e.communication]
+ ].sort((a,b)=>b[1]-a[1]);
+ const best=scores[0][0],low=scores[scores.length-1][0];
+ if(!e.good_points)el.querySelector('.eval-good').value=`${best}の場面で積極的にプレーできました。最後まで前向きに取り組めたことも良かったです。`;
+ if(!e.improvement_points)el.querySelector('.eval-improve').value=`次は${low}を少し意識し、プレーする前に周りを見る回数を増やしましょう。`;
+ if(!e.next_goal)el.querySelector('.eval-goal').value=`次の試合では、良かった${best}を続けながら、${low}を意識したプレーを3回チャレンジする。`;
+ showMessage(`${p?.name||'選手'}のコメント例を入力しました。内容を確認して修正してください。`,'ok')
+}
+function generateDraftAiAdvice(playerId){
+ const el=matchEvalElement(playerId);if(!el)return;el.open=true;
+ const p=players.find(x=>String(x.id)===String(playerId)),e=collectEvalFromElement(el);
+ const matchDate=$('matchDate')?.value||'',opponent=$('opponent')?.value||'',competition=$('competition')?.value||'';
+ const prompt=`${p?.name||'選手'}の試合評価から、小学生本人に伝える前向きなAIアドバイスを作成してください。
+試合：${matchDate} ${opponent} ${competition}
+攻撃${e.attack}/5、守備${e.defense}/5、パス${e.passing}/5、ドリブル${e.dribbling}/5、シュート${e.shooting}/5、判断力${e.decision_making}/5、運動量${e.work_rate}/5、声かけ${e.communication}/5
+良かったところ：${e.good_points||'未入力'}
+改善したいところ：${e.improvement_points||'未入力'}
+次の目標：${e.next_goal||'未入力'}
+
+次の順で、短く具体的に作成してください。
+1. 良かった点
+2. 次に意識する1〜2点
+3. 次回練習でできるメニュー
+4. 前向きなひと言`;
+ sessionStorage.setItem('furugenPendingAiPrompt',prompt);
+ showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));setAiPrompt(prompt);
+ showMessage('AI画面に評価内容をセットしました。','ok')
 }
 async function loadMatchEvaluationsForEdit(matchId){
  if(!matchId){editingMatchEvaluations=[];renderMatchEvaluationInputs();return}

@@ -174,3 +174,26 @@ img[loading="lazy"]{content-visibility:auto}
  .match-eval-editor-head{align-items:flex-start;flex-direction:column}
  .eval-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* Ver.9.2 試合評価入力完成版 */
+.eval-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.eval-filter-label{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px}
+.eval-empty p{margin:8px 0 0}
+.eval-player-summary{display:flex;align-items:center;gap:9px}
+.eval-player-summary small{display:block!important;margin:2px 0 0!important}
+.eval-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#e2e8f0;flex:0 0 auto}
+.eval-avatar.placeholder{display:inline-block}
+.eval-rating-item{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:8px!important}
+.eval-rating-item span{display:block;font-size:12px;font-weight:700;color:#475569}
+.eval-rating-item select{font-size:13px}
+.eval-comment-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 12px 10px}
+.eval-comment-grid label{padding:0!important}
+.eval-card-actions{display:flex;gap:8px;flex-wrap:wrap;padding:0 12px}
+@media(max-width:900px){
+ .eval-comment-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .eval-toolbar{width:100%}
+ .eval-toolbar button,.eval-filter-label{flex:1}
+}
