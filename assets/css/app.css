@@ -317,3 +317,48 @@ img[loading="lazy"]{content-visibility:auto}
   .match-eval-input summary{padding:10px}
   .eval-avatar{width:34px;height:34px}
 }
+
+
+/* Ver.9.5 試合後入力完成版 */
+.score-buttons{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:6px}
+.score-btn{
+  min-width:0;
+  padding:9px 0;
+  border-radius:9px;
+  border:1px solid #cbd5e1;
+  background:#fff;
+  color:#334155;
+  font-weight:800
+}
+.score-btn.active{
+  background:#2563eb;
+  color:#fff;
+  border-color:#2563eb;
+  box-shadow:0 3px 8px rgba(37,99,235,.22)
+}
+.hidden-score-select{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important}
+.eval-finish-controls{display:flex;gap:8px;flex-wrap:wrap;border-top:1px dashed #bfdbfe;padding-top:10px}
+.mvp-candidate-box{display:grid;gap:7px;border-top:1px dashed #bfdbfe;padding-top:10px}
+.mvp-title{font-weight:800;color:#92400e}
+.mvp-candidate{
+  display:grid;
+  grid-template-columns:28px 1fr auto;
+  gap:8px;
+  align-items:center;
+  background:#fff7ed;
+  color:#7c2d12;
+  border:1px solid #fed7aa;
+  text-align:left
+}
+.mvp-candidate span{
+  width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;
+  background:#fb923c;color:#fff;font-weight:800
+}
+.mvp-candidate em{font-style:normal;font-size:12px;color:#9a3412}
+@media(max-width:600px){
+  .score-buttons{gap:4px}
+  .score-btn{padding:11px 0}
+  .eval-finish-controls{display:grid;grid-template-columns:1fr}
+  .eval-finish-controls button{width:100%}
+}

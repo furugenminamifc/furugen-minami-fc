@@ -127,13 +127,22 @@ function renderMatchEvaluationInputs(){
 }
 function evalRatingControl(label,cls,value=3){
  const v=Number(value)||3;
- return `<label class="eval-rating-item"><span>${label}</span>
-  <select class="${cls}">${[1,2,3,4,5].map(n=>`<option value="${n}" ${v===n?'selected':''}>${'★'.repeat(n)}${'☆'.repeat(5-n)} ${n}</option>`).join('')}</select>
- </label>`
+ return `<div class="eval-rating-item">
+  <span>${label}</span>
+  <div class="score-buttons" data-class="${cls}">
+   ${[1,2,3,4,5].map(n=>`<button type="button" class="score-btn ${n===v?'active':''}" data-score="${n}" onclick="setScoreButton(this,'${cls}',${n})">${n}</button>`).join('')}
+  </div>
+  <select class="${cls} hidden-score-select" aria-hidden="true">
+   ${[1,2,3,4,5].map(n=>`<option value="${n}" ${v===n?'selected':''}>${n}</option>`).join('')}
+  </select>
+ </div>`
 }
 function visibleEvalCards(){return [...document.querySelectorAll('.match-eval-input[data-player]')]}
 function applyEvaluationToCard(card,value){
- card.querySelectorAll('.eval-grid select').forEach(s=>s.value=String(value));
+ card.querySelectorAll('.eval-rating-item').forEach(item=>{
+  const select=item.querySelector('select');if(select)select.value=String(value);
+  item.querySelectorAll('.score-btn').forEach(b=>b.classList.toggle('active',Number(b.dataset.score)===Number(value)))
+ });
  updateLiveOverall(card)
 }
 function setAllVisibleEvaluation(value){
@@ -173,6 +182,12 @@ function updateEvaluationProgress(){
  text.textContent=`評価対象 ${cards.length}人 ／ コメント入力 ${commented}人`;
  bar.style.width=`${pct}%`
 }
+function setScoreButton(btn,cls,value){
+ const item=btn.closest('.eval-rating-item');if(!item)return;
+ item.querySelectorAll('.score-btn').forEach(b=>b.classList.toggle('active',Number(b.dataset.score)===Number(value)));
+ const select=item.querySelector(`select.${cls}`);if(select)select.value=String(value);
+ const card=btn.closest('.match-eval-input');updateLiveOverall(card);updateEvaluationProgress()
+}
 function openAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=true)}
 function closeAllMatchEvaluations(){document.querySelectorAll('.match-eval-input').forEach(x=>x.open=false)}
 function updateLiveOverall(el){
@@ -203,6 +218,71 @@ function fillQuickPositiveComment(playerId){
  if(!e.improvement_points)el.querySelector('.eval-improve').value=`次は${low}を少し意識し、プレーする前に周りを見る回数を増やしましょう。`;
  if(!e.next_goal)el.querySelector('.eval-goal').value=`次の試合では、良かった${best}を続けながら、${low}を意識したプレーを3回チャレンジする。`;
  showMessage(`${p?.name||'選手'}のコメント例を入力しました。内容を確認して修正してください。`,'ok')
+}
+function evaluatedPlayerRows(){
+ return visibleEvalCards().map(card=>{
+  const p=players.find(x=>String(x.id)===String(card.dataset.player));
+  const e=collectEvalFromElement(card);
+  return {player:p,e,overall:Number(evaluationOverall(e))}
+ }).filter(x=>x.player)
+}
+function suggestMvpCandidates(){
+ const box=$('mvpCandidateBox');if(!box)return;
+ const rows=evaluatedPlayerRows().sort((a,b)=>b.overall-a.overall).slice(0,5);
+ if(!rows.length){showMessage('評価対象の選手がいません。');return}
+ box.classList.remove('hidden');
+ box.innerHTML=`<div class="mvp-title">⭐ MVP候補</div>
+ ${rows.map((x,i)=>`<button type="button" class="mvp-candidate" onclick="selectMvpCandidate('${x.player.id}')">
+   <span>${i+1}</span><b>${esc(x.player.name)}</b><em>総合 ${x.overall.toFixed(1)}</em>
+ </button>`).join('')}`;
+}
+function selectMvpCandidate(playerId){
+ const row=document.querySelector(`.player-entry[data-player="${CSS.escape(String(playerId))}"]`);
+ if(!row){showMessage('選手記録欄が見つかりません。');return}
+ document.querySelectorAll('.player-entry .mvp').forEach(x=>x.checked=false);
+ const mvp=row.querySelector('.mvp');if(mvp)mvp.checked=true;
+ const p=players.find(x=>String(x.id)===String(playerId));
+ showMessage(`${p?.name||'選手'}をMVPに設定しました。`,'ok')
+}
+function generateMatchSummaryDraft(){
+ const rows=evaluatedPlayerRows();
+ if(!rows.length){showMessage('選手評価を入力してください。');return}
+ const date=$('matchDate')?.value||'',opp=$('opponent')?.value||'',comp=$('competition')?.value||'';
+ const best=[...rows].sort((a,b)=>b.overall-a.overall).slice(0,3);
+ const avg=(key)=>rows.length?(rows.reduce((s,x)=>s+(Number(x.e[key])||0),0)/rows.length).toFixed(1):'0.0';
+ const prompt=`次の試合評価から、コーチ向けの試合総評を作成してください。
+試合：${date} ${opp} ${comp}
+チーム平均：攻撃${avg('attack')} 守備${avg('defense')} パス${avg('passing')} ドリブル${avg('dribbling')} シュート${avg('shooting')} 判断力${avg('decision_making')} 運動量${avg('work_rate')} 声かけ${avg('communication')}
+上位選手：${best.map(x=>`${x.player.name} 総合${x.overall.toFixed(1)}`).join('、')}
+各選手コメント：${rows.slice(0,12).map(x=>`${x.player.name} 良かった点:${x.e.good_points||'-'} 改善点:${x.e.improvement_points||'-'} 次の目標:${x.e.next_goal||'-'}`).join(' / ')}
+
+以下の順で作成してください。
+1. 試合総評
+2. 良かった点
+3. チーム課題
+4. 次回練習メニュー3つ
+5. MVP候補3人`;
+ showPage('ai');setAiMode('match',document.querySelector('[data-mode="match"]'));setAiPrompt(prompt);
+ showMessage('AI画面に試合総評用データをセットしました。','ok')
+}
+function generateParentsMessageDraft(){
+ const rows=evaluatedPlayerRows();
+ const date=$('matchDate')?.value||'',opp=$('opponent')?.value||'',comp=$('competition')?.value||'';
+ const best=[...rows].sort((a,b)=>b.overall-a.overall).slice(0,2);
+ const prompt=`保護者向けの試合報告文を作成してください。
+試合：${date} ${opp} ${comp}
+スコア：古堅南FC ${$('goalsFor')?.value||0} - ${$('goalsAgainst')?.value||0} 相手
+良かった選手：${best.map(x=>`${x.player.name} 総合${x.overall.toFixed(1)}`).join('、')||'未選択'}
+コーチメモ：${$('matchMemo')?.value||'未入力'}
+
+LINEで送りやすい、300文字以内の丁寧で前向きな文章にしてください。
+構成：
+・応援へのお礼
+・試合の様子
+・子どもたちの成長
+・次回への意気込み`;
+ showPage('ai');setAiMode('parents',document.querySelector('[data-mode="parents"]'));setAiPrompt(prompt);
+ showMessage('AI画面に保護者向け文面の材料をセットしました。','ok')
 }
 function generateDraftAiAdvice(playerId){
  const el=matchEvalElement(playerId);if(!el)return;el.open=true;
