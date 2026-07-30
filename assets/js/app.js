@@ -45,10 +45,10 @@ function renderAnalytics(){if(!window.Chart)return;const ms=analysisMatches();le
 init();
 
 // ===== Ver.5 Phase 2: AI会話・分析 =====
-const AI_DEFAULT_URL='http://localhost:8001';
+const AI_DEFAULT_URL='https://furugen-minami-ai.onrender.com';
 let aiMode='chat';
 let aiHistory=[];
-function aiSettings(){return {url:localStorage.getItem('furugenAiServerUrl')||AI_DEFAULT_URL,instruction:localStorage.getItem('furugenAiInstruction')||'小学生年代に伝わる言葉を使い、安全・成長・楽しさを優先してください。'}}
+function aiSettings(){let saved=(localStorage.getItem('furugenAiServerUrl')||'').trim().replace(/\/$/,'');if(!saved||/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(saved)){saved=AI_DEFAULT_URL;localStorage.setItem('furugenAiServerUrl',saved)}return {url:saved,instruction:localStorage.getItem('furugenAiInstruction')||'小学生年代に伝わる言葉を使い、安全・成長・楽しさを優先してください。'}}
 function openAiSettings(){const s=aiSettings();$('aiServerUrl').value=s.url;$('aiTeamInstruction').value=s.instruction;$('aiSettingsModal').classList.remove('hidden')}
 function closeAiSettings(){$('aiSettingsModal').classList.add('hidden')}
 function saveAiSettings(){const url=$('aiServerUrl').value.trim().replace(/\/$/,'')||AI_DEFAULT_URL;localStorage.setItem('furugenAiServerUrl',url);localStorage.setItem('furugenAiInstruction',$('aiTeamInstruction').value.trim());closeAiSettings();showMessage('AI設定を保存しました。','ok');testAiConnection()}
@@ -68,7 +68,7 @@ async function testAiConnection(){const badge=$('aiConnectionBadge');badge.textC
 async function sendAiMessage(){const prompt=$('aiPrompt').value.trim();if(!prompt){showMessage('相談内容を入力してください。');return}const btn=$('aiSendBtn'),status=$('aiStatus');const outgoingHistory=aiHistory.slice(-10);addAiMessage(prompt,'user');aiHistory.push({role:'user',content:prompt});$('aiPrompt').value='';btn.disabled=true;status.textContent='AIが回答を作成中…';const loading=addAiMessage('考えています','assistant','aiLoading');loading.classList.add('ai-loading');try{const s=aiSettings();const r=await fetch(s.url+'/v1/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt,mode:aiMode,system_instruction:s.instruction,context:aiTeamContext(),history:outgoingHistory})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||data.error||('HTTP '+r.status));loading.remove();const answer=data.answer||'回答が空でした。';addAiMessage(answer,'assistant');aiHistory.push({role:'assistant',content:answer});saveAiHistory()}catch(e){loading.remove();addAiMessage('AI回答を取得できませんでした。Ver.6 Dockerサーバー、AI設定URL、APIキーを確認してください。\n'+e.message,'error')}finally{btn.disabled=false;status.textContent=''}}
 async function copyLastAiAnswer(){const last=[...aiHistory].reverse().find(x=>x.role==='assistant');if(!last){showMessage('コピーできるAI回答がありません。');return}try{await navigator.clipboard.writeText(last.content);showMessage('AI回答をコピーしました。','ok')}catch{showMessage('コピーできませんでした。回答を長押ししてコピーしてください。')}}
 const originalLoadAll=loadAll;loadAll=async function(){await originalLoadAll();refreshAiPlayerSelect()};
-setTimeout(()=>{restoreAiHistory();refreshAiPlayerSelect()},0);
+setTimeout(()=>{restoreAiHistory();refreshAiPlayerSelect();const input=$('aiServerUrl');if(input)input.placeholder=AI_DEFAULT_URL;document.querySelectorAll('#ai code').forEach(el=>{if((el.textContent||'').includes('localhost:8001'))el.textContent=AI_DEFAULT_URL});},0);
 
 
 // Ver.6 - AIレポート・動画メモ
