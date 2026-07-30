@@ -138,6 +138,175 @@ async function copyCoach12ShareSummary(){
  try{await navigator.clipboard.writeText(text);showMessage('共有用要約をコピーしました。','ok')}
  catch(e){showMessage('要約を表示しました。手動でコピーしてください。')}
 }
+
+function coach13SelectedPlayer(){
+ const id=$('coach13PlayerSelect')?.value;
+ return players.find(x=>String(x.id)===String(id))
+}
+function coach13PlayerEvalRows(playerId){
+ return (typeof playerMatchEvaluations!=='undefined'?playerMatchEvaluations:[])
+  .filter(x=>String(x.player_id)===String(playerId))
+  .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))
+}
+function coach13TopSkill(e){
+ const fields=[['攻撃','attack'],['守備','defense'],['パス','passing'],['ドリブル','dribbling'],['シュート','shooting'],['判断力','decision_making'],['運動量','work_rate'],['声かけ','communication']];
+ return fields.map(([label,key])=>({label,val:Number(e?.[key]||0)})).sort((a,b)=>b.val-a.val)
+}
+function renderCoach13PlayerCard(){
+ const box=$('coach13PlayerCard'),p=coach13SelectedPlayer();if(!box)return;
+ if(!p){box.innerHTML='<div class="muted">選手を選択してください。</div>';return}
+ const t=totals(p),evals=coach13PlayerEvalRows(p.id),latest=evals[0],skills=coach13TopSkill(latest);
+ const best=skills[0]?.val?skills[0]:null,weak=skills.filter(x=>x.val>0).slice(-1)[0];
+ box.innerHTML=`
+  <div class="coach13-player-head">
+   ${p.photo_url?`<img src="${esc(p.photo_url)}" alt="">`:`<span class="coach13-avatar"></span>`}
+   <div><b>${esc(p.name)}</b><span>${esc(p.grade)} / ${esc(p.position)} / ${esc(p.status)}</span></div>
+  </div>
+  <div class="coach13-kpis">
+   <div><span>出場</span><b>${t.apps}</b></div>
+   <div><span>時間</span><b>${t.minutes}分</b></div>
+   <div><span>得点</span><b>${t.goals}</b></div>
+   <div><span>アシスト</span><b>${t.assists}</b></div>
+  </div>
+  <div class="coach13-insights">
+   <p><b>強み：</b>${esc(p.strengths||best?.label||'未入力')}</p>
+   <p><b>次の課題：</b>${esc(p.development_goal||weak?.label||'未入力')}</p>
+   <p><b>最近の評価：</b>${latest?evaluationOverall(latest):'未評価'}</p>
+  </div>`
+}
+function runCoach13PlayerBrief(){
+ const p=coach13SelectedPlayer();if(!p){showMessage('選手を選択してください。');return}
+ const t=totals(p),evals=coach13PlayerEvalRows(p.id).slice(0,3);
+ const prompt=`${p.name}選手への本人向けアドバイスを作成してください。
+学年:${p.grade} ポジション:${p.position}
+出場:${t.apps}試合 ${t.minutes}分 得点:${t.goals} アシスト:${t.assists}
+強み:${p.strengths||'未入力'}
+成長目標:${p.development_goal||'未入力'}
+最近の評価:${evals.map(e=>`総合${evaluationOverall(e)} 良い点:${e.good_points||'-'} 改善:${e.improvement_points||'-'}`).join(' / ')||'未評価'}
+
+小学生本人に伝わるように、
+1. できていること
+2. 次に意識すること1つ
+3. 次の練習でやること
+4. 前向きな一言
+の順で短く作成してください。`;
+ coachSendPrompt('player',prompt)
+}
+function runCoach13ParentBrief(){
+ const p=coach13SelectedPlayer();if(!p){showMessage('選手を選択してください。');return}
+ const t=totals(p);
+ const prompt=`${p.name}選手の保護者向け成長レポートを作成してください。
+学年:${p.grade} ポジション:${p.position}
+出場:${t.apps}試合 ${t.minutes}分 得点:${t.goals} アシスト:${t.assists}
+強み:${p.strengths||'未入力'}
+成長目標:${p.development_goal||'未入力'}
+
+250文字以内で、
+・最近の成長
+・良かった点
+・次の目標
+・家庭でできる応援
+を丁寧で前向きにまとめてください。`;
+ coachSendPrompt('parents',prompt)
+}
+function coach13TeamAverages(){
+ const evals=typeof playerMatchEvaluations!=='undefined'?playerMatchEvaluations:[];
+ const fields=['attack','defense','passing','dribbling','shooting','decision_making','work_rate','communication'];
+ const labels={attack:'攻撃',defense:'守備',passing:'パス',dribbling:'ドリブル',shooting:'シュート',decision_making:'判断力',work_rate:'運動量',communication:'声かけ'};
+ return fields.map(key=>({key,label:labels[key],avg:evals.length?evals.reduce((s,e)=>s+Number(e[key]||0),0)/evals.length:0})).sort((a,b)=>a.avg-b.avg)
+}
+function renderCoach13TeamFocus(){
+ const box=$('coach13TeamFocus');if(!box)return;
+ const avgs=coach13TeamAverages();
+ const rows=avgs.filter(x=>x.avg>0).slice(0,3);
+ if(!rows.length){box.innerHTML='<div class="muted">選手評価を入力すると、チーム課題を自動整理します。</div>';return}
+ box.innerHTML=rows.map((x,i)=>`<div class="coach13-focus-item"><span>${i+1}</span><b>${x.label}</b><em>平均 ${x.avg.toFixed(1)}</em></div>`).join('')
+}
+function runCoach13WeeklyPlan(){
+ const rows=coach13TeamAverages().filter(x=>x.avg>0).slice(0,3);
+ const prompt=`古堅南FCの今週の練習計画を作成してください。
+優先課題:${rows.map(x=>`${x.label} 平均${x.avg.toFixed(1)}`).join('、')||'評価未入力'}
+登録人数:${players.filter(p=>p.status==='現役').length}
+最近の試合:${matches.slice(0,3).map(m=>`${m.match_date||''} ${m.opponent||''} ${m.goals_for||0}-${m.goals_against||0}`).join(' / ')||'未登録'}
+
+週2回練習を想定し、
+・1回目60分
+・2回目90分
+で、目的、メニュー、時間、人数、コーチングポイント、安全上の注意を作成してください。`;
+ coachSendPrompt('training',prompt)
+}
+function runCoach13CoachMeeting(){
+ const alerts=$('coach12Alerts')?.innerText||'特記事項なし';
+ const focus=$('coach13TeamFocus')?.innerText||'課題未整理';
+ const prompt=`古堅南FCのコーチミーティング資料を作成してください。
+注意事項:
+${alerts}
+今週の優先課題:
+${focus}
+直近試合:
+${matches.slice(0,3).map(m=>`${m.match_date||''} 対${m.opponent||''} ${m.goals_for||0}-${m.goals_against||0}`).join('\n')||'未登録'}
+
+議題を、
+1. 選手の体調・安全
+2. 試合振り返り
+3. 出場機会
+4. 今週の練習テーマ
+5. 保護者連絡
+6. 決定事項
+の順で作成してください。`;
+ coachSendPrompt('season',prompt)
+}
+function runCoach13SelectionDecision(){
+ const active=players.filter(p=>p.status==='現役').map(p=>{const t=totals(p);return `${p.name} ${p.grade} ${p.position} 出場${t.apps} 時間${t.minutes} 得点${t.goals}`}).join('\n');
+ const prompt=`次の選手情報から、次回試合の招集候補を公平性と育成を重視して整理してください。
+${active}
+
+条件:
+・特定選手への偏りを避ける
+・出場時間が少ない選手へ配慮
+・ポジションバランス
+・体調や本人の気持ちは未反映なので、最終確認事項として明記
+・招集候補、理由、要確認事項を表形式で作成`;
+ coachSendPrompt('lineup',prompt)
+}
+function runCoach13PlayingTimeDecision(){
+ const active=players.filter(p=>p.status==='現役').map(p=>{const t=totals(p);return `${p.name} ${p.grade} ${p.position} 総出場時間${t.minutes}分`}).join('\n');
+ const prompt=`次回試合の出場時間配分案を作成してください。
+${active}
+
+条件:
+・育成機会を重視
+・総出場時間が少ない選手へ配慮
+・GPは交代の現実性も考慮
+・8人制、40分を想定
+・先発、交代目安、予定出場時間、理由を作成
+・体調や本人の気持ちを当日確認する注意書きを入れる`;
+ coachSendPrompt('lineup',prompt)
+}
+function runCoach13PositionDecision(){
+ const active=players.filter(p=>p.status==='現役').map(p=>`${p.name} ${p.grade} 登録:${p.position} 強み:${p.strengths||'-'} 目標:${p.development_goal||'-'}`).join('\n');
+ const prompt=`次の選手情報から、育成を重視したポジション配置案を作成してください。
+${active}
+
+各選手について、
+・第一候補
+・第二候補
+・育成目的
+・避けたい固定化
+を整理してください。`;
+ coachSendPrompt('lineup',prompt)
+}
+function runCoach13RiskDecision(){
+ const alertText=$('coach12Alerts')?.innerText||'特記事項なし';
+ const prompt=`少年サッカーの試合前確認リストを作成してください。
+現在のアラート:
+${alertText}
+
+体調・ケガ・疲労・睡眠・水分・暑熱・本人の気持ち・保護者連絡・出場可否の観点で、
+当日コーチが確認するチェックリストを作成してください。
+医療判断は行わず、異常がある場合は保護者や医療機関へ相談する前提を明記してください。`;
+ coachSendPrompt('training',prompt)
+}
 function switchCoach11Mode(mode,btn){
  document.querySelectorAll('.coach11-panel').forEach(x=>x.classList.add('hidden'));
  const panel=$(`coach11-${mode}`);if(panel)panel.classList.remove('hidden');
@@ -227,7 +396,15 @@ function renderAiCoachDashboard(){
  }
  const share=$('coach12ShareSummary');if(share)share.value=buildCoach12ShareSummary();
  loadCoach12Checklist();
- renderCoach12Alerts()
+ renderCoach12Alerts();
+ const psel=$('coach13PlayerSelect');
+ if(psel){
+  const current=psel.value;
+  psel.innerHTML=players.map(p=>`<option value="${p.id}">${esc(p.name)} / ${esc(p.grade)} / ${esc(p.position)}</option>`).join('');
+  if(current)psel.value=current
+ }
+ renderCoach13PlayerCard();
+ renderCoach13TeamFocus()
 }
 function runCoachMatchDiagnosis(){
  const id=$('coachMatchSelect')?.value,m=matches.find(x=>String(x.id)===String(id));

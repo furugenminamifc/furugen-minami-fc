@@ -427,3 +427,31 @@ img[loading="lazy"]{content-visibility:auto}
 .coach12-reportbox textarea{min-height:110px}
 @media(max-width:850px){.coach12-workbench{grid-template-columns:1fr}}
 @media(max-width:600px){.coach12-report-actions{display:grid;grid-template-columns:1fr}.coach12-report-actions button{width:100%}}
+
+
+/* Ver.13.0 AIがコーチの右腕になる */
+.coach13-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.coach13-card,.coach13-decision{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
+.coach13-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.coach13-card-head span{font-size:11px;font-weight:800;color:#7c3aed}
+.coach13-card-head h3{margin:2px 0 0}
+.coach13-card-head select{max-width:260px}
+.coach13-player-card{display:grid;gap:10px}
+.coach13-player-head{display:flex;align-items:center;gap:10px}
+.coach13-player-head img,.coach13-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#e2e8f0}
+.coach13-player-head b{display:block;font-size:18px}
+.coach13-player-head span{display:block;color:#64748b;font-size:12px}
+.coach13-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.coach13-kpis>div{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:9px}
+.coach13-kpis span{display:block;font-size:11px;color:#64748b}.coach13-kpis b{font-size:18px}
+.coach13-insights{background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:10px}
+.coach13-insights p{margin:5px 0}
+.coach13-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.coach13-focus-list{display:grid;gap:8px}
+.coach13-focus-item{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:8px;padding:10px;border-radius:10px;background:#f8fafc;border:1px solid var(--line)}
+.coach13-focus-item span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#7c3aed;color:#fff;font-weight:800}
+.coach13-focus-item em{font-style:normal;font-size:12px;color:#64748b}
+.coach13-decision{margin-top:12px}
+.coach13-decision-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
+@media(max-width:900px){.coach13-grid{grid-template-columns:1fr}.coach13-decision-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.coach13-card-head{align-items:flex-start;flex-direction:column}.coach13-card-head select{max-width:none;width:100%}.coach13-kpis{grid-template-columns:repeat(2,1fr)}.coach13-actions{display:grid;grid-template-columns:1fr}.coach13-decision-grid{grid-template-columns:1fr}}
