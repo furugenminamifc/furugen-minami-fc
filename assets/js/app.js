@@ -1,4 +1,4 @@
-let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],playerMedicalRecords=[],playerSkillEvaluations=[],teamSettings={},editingMatchId='',charts={};
+let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],playerMedicalRecords=[],playerSkillEvaluations=[],playerMatchEvaluations=[],teamSettings={},editingMatchId='',charts={};
 let playerPage=1;
 const PLAYER_PAGE_SIZE=20;
 const detailCache=new Map();
@@ -64,25 +64,32 @@ let activePlayerDetailId='',playerGrowthChart=null;
 function playerMatchRows(id){return records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||''))}
 function playerDetailTabButton(id,label,icon,staffOnly=false){if(staffOnly&&!isStaff())return '';return `<button class="player-detail-tab" data-player-tab="${id}" onclick="switchPlayerDetailTab('${id}',this)">${icon} ${label}</button>`}
 async function loadPlayerDetailData(playerId,force=false){
- if(!isStaff()){playerPrivate=[];playerGrowthRecords=[];playerMedicalRecords=[];playerSkillEvaluations=[];return}
+ if(!isStaff()){playerPrivate=[];playerGrowthRecords=[];playerMedicalRecords=[];playerSkillEvaluations=[];playerMatchEvaluations=[];return}
  const key=String(playerId),cached=detailCache.get(key);
  if(!force&&cached&&Date.now()-cached.time<DETAIL_CACHE_MS){
   playerPrivate=cached.privateData;playerGrowthRecords=cached.growth;
-  playerMedicalRecords=cached.medical;playerSkillEvaluations=cached.skills;return
+  playerMedicalRecords=cached.medical;playerSkillEvaluations=cached.skills;
+  playerMatchEvaluations=cached.matchEvaluations||[];return
  }
- const [pv,gr,med,sk]=await Promise.all([
+ const [pv,gr,med,sk,me]=await Promise.all([
   sb.from('player_private').select('*').eq('player_id',key),
   sb.from('player_growth_records').select('*').eq('player_id',key).order('record_date',{ascending:false}),
   sb.from('player_medical_records').select('*').eq('player_id',key).order('record_date',{ascending:false}),
-  sb.from('player_skill_evaluations').select('*').eq('player_id',key).order('evaluation_date',{ascending:false})
+  sb.from('player_skill_evaluations').select('*').eq('player_id',key).order('evaluation_date',{ascending:false}),
+  sb.from('player_match_evaluations').select('*').eq('player_id',key).order('created_at',{ascending:false})
  ]);
  playerPrivate=pv.error?[]:(pv.data||[]);
  playerGrowthRecords=gr.error?[]:(gr.data||[]);
  playerMedicalRecords=med.error?[]:(med.data||[]);
  playerSkillEvaluations=sk.error?[]:(sk.data||[]);
- detailCache.set(key,{time:Date.now(),privateData:playerPrivate,growth:playerGrowthRecords,medical:playerMedicalRecords,skills:playerSkillEvaluations})
+ playerMatchEvaluations=me.error?[]:(me.data||[]);
+ detailCache.set(key,{time:Date.now(),privateData:playerPrivate,growth:playerGrowthRecords,medical:playerMedicalRecords,skills:playerSkillEvaluations,matchEvaluations:playerMatchEvaluations})
 }
 function clearPlayerDetailCache(playerId){detailCache.delete(String(playerId))}
+function matchEvaluationsForPlayer(id){return playerMatchEvaluations.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))}
+function matchById(id){return matches.find(x=>String(x.id)===String(id))}
+function averageEvaluation(items,key){if(!items.length)return '—';const vals=items.map(x=>Number(x[key])||0).filter(Boolean);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):'—'}
+function evaluationOverall(v){const keys=['attack','defense','passing','dribbling','shooting','decision_making','work_rate','communication'];const vals=keys.map(k=>Number(v[k])||0).filter(Boolean);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):'0.0'}
 function medicalForPlayer(id){return playerMedicalRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
 function skillsForPlayer(id){return playerSkillEvaluations.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.evaluation_date||'').localeCompare(a.evaluation_date||''))}
 function growthForPlayer(id){return playerGrowthRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
@@ -117,6 +124,7 @@ async function openPlayerDetail(id){
    ${playerDetailTabButton('growth','成長カルテ','📈')}
    ${playerDetailTabButton('medical','メディカル','🩺',true)}
    ${playerDetailTabButton('skills','技術評価','⚽',true)}
+   ${playerDetailTabButton('match-eval','試合評価','⭐',true)}
    ${playerDetailTabButton('ai','AI分析','🤖')}
    ${playerDetailTabButton('condition','コンディション','🩺',true)}
    ${playerDetailTabButton('guardian','保護者情報','👨‍👩‍👧',true)}
@@ -236,6 +244,69 @@ async function openPlayerDetail(id){
    </div>
  </div>`:''}
 
+
+ ${staff?`<div id="playerTab-match-eval" class="player-tab-panel hidden">
+   <div class="detail-panel">
+     <div class="section-title"><h4>試合ごとの選手評価</h4><button class="light" onclick="toggleMatchEvalEntry()">＋ 評価を追加</button></div>
+     <div id="matchEvalEntryForm" class="match-eval-entry hidden">
+       <div class="grid">
+         <div>
+           <label>対象試合</label>
+           <select id="matchEvalMatchId">
+             <option value="">試合を選択</option>
+             ${matches.map(m=>`<option value="${m.id}">${esc(m.match_date||'')} ${esc(m.opponent||'対戦相手未設定')} ${esc(m.competition||'')}</option>`).join('')}
+           </select>
+         </div>
+         <div><label>攻撃</label><select id="matchEvalAttack">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>守備</label><select id="matchEvalDefense">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>パス</label><select id="matchEvalPassing">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>ドリブル</label><select id="matchEvalDribbling">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>シュート</label><select id="matchEvalShooting">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>判断力</label><select id="matchEvalDecision">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>運動量</label><select id="matchEvalWorkRate">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+         <div><label>コミュニケーション</label><select id="matchEvalCommunication">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select></div>
+       </div>
+       <label>良かったところ</label>
+       <textarea id="matchEvalGood" placeholder="例：前向きにボールを運べた、味方への声かけが良かった"></textarea>
+       <label>改善したいところ</label>
+       <textarea id="matchEvalImprove" placeholder="例：守備への切り替え、周囲を見る回数"></textarea>
+       <label>次の具体目標</label>
+       <textarea id="matchEvalNextGoal" placeholder="例：受ける前に2回首を振る"></textarea>
+       <div class="modal-actions">
+         <button onclick="saveMatchEvaluation('${p.id}')">試合評価を保存</button>
+         <button class="secondary" onclick="toggleMatchEvalEntry()">閉じる</button>
+       </div>
+     </div>
+
+     <div class="match-eval-summary">
+       ${['attack','defense','passing','dribbling','shooting','decision_making','work_rate','communication'].map((k,i)=>`<div><span>${['攻撃','守備','パス','ドリブル','シュート','判断力','運動量','声かけ'][i]}</span><b>${averageEvaluation(matchEvaluationsForPlayer(p.id),k)}</b></div>`).join('')}
+     </div>
+
+     <div class="match-eval-chart-wrap"><canvas id="playerMatchEvalCanvas"></canvas></div>
+
+     <div class="match-eval-history">
+       ${matchEvaluationsForPlayer(p.id).length?matchEvaluationsForPlayer(p.id).map(e=>{const m=matchById(e.match_id);return `<div class="match-eval-row">
+         <div>
+           <b>${esc(m?.match_date||'日付未設定')} ${esc(m?.opponent||'対戦相手未設定')}</b>
+           <span>${esc(m?.competition||'')} / 総合 ${evaluationOverall(e)}</span>
+         </div>
+         <div class="match-eval-scores">
+           <span>攻${e.attack}</span><span>守${e.defense}</span><span>パ${e.passing}</span><span>ド${e.dribbling}</span><span>シ${e.shooting}</span><span>判${e.decision_making}</span><span>運${e.work_rate}</span><span>声${e.communication}</span>
+         </div>
+         <div class="match-eval-comments">
+           <p><b>良かった点：</b>${esc(e.good_points||'未入力')}</p>
+           <p><b>改善点：</b>${esc(e.improvement_points||'未入力')}</p>
+           <p><b>次の目標：</b>${esc(e.next_goal||'未入力')}</p>
+         </div>
+         <div class="match-eval-actions">
+           <button class="light mini" onclick="prepareMatchEvaluationAi('${e.id}','${p.id}')">AIアドバイス</button>
+           <button class="danger mini" onclick="deleteMatchEvaluation('${e.id}','${p.id}')">削除</button>
+         </div>
+       </div>`}).join(''):'<div class="muted">試合評価はまだありません。</div>'}
+     </div>
+   </div>
+ </div>`:''}
+
 <div id="playerTab-ai" class="player-tab-panel hidden">
    <div class="ai-player-summary">
      <h4>🤖 AIへ渡す育成データ</h4>
@@ -287,7 +358,7 @@ function switchPlayerDetailTab(tab,button){
  document.querySelectorAll('#playerDetailContent .player-tab-panel').forEach(x=>x.classList.add('hidden'));
  document.querySelectorAll('#playerDetailContent .player-detail-tab').forEach(x=>x.classList.remove('active'));
  const panel=$('playerTab-'+tab);if(panel)panel.classList.remove('hidden');if(button)button.classList.add('active');
- if(tab==='growth')setTimeout(()=>{renderPlayerGrowthChart(activePlayerDetailId);if(isStaff())renderPlayerBodyGrowthChart(activePlayerDetailId)},30);if(tab==='skills'&&isStaff())setTimeout(()=>renderPlayerSkillChart(activePlayerDetailId),30);
+ if(tab==='growth')setTimeout(()=>{renderPlayerGrowthChart(activePlayerDetailId);if(isStaff())renderPlayerBodyGrowthChart(activePlayerDetailId)},30);if(tab==='skills'&&isStaff())setTimeout(()=>renderPlayerSkillChart(activePlayerDetailId),30);if(tab==='match-eval'&&isStaff())setTimeout(()=>renderPlayerMatchEvalChart(activePlayerDetailId),30);
 }
 function renderPlayerGrowthChart(id){
  if(!window.Chart)return;
@@ -350,6 +421,70 @@ function renderPlayerSkillChart(id){
  if(canvas._chart)canvas._chart.destroy();const vals=s?[s.dribbling,s.passing,s.shooting,s.defending,s.speed,s.decision_making,s.physical,s.mental]:[0,0,0,0,0,0,0,0];
  canvas._chart=new Chart(canvas,{type:'radar',data:{labels:['ドリブル','パス','シュート','守備','スピード','判断力','フィジカル','メンタル'],datasets:[{label:s?`最新評価 ${s.evaluation_date}`:'未評価',data:vals}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,min:0,max:5,ticks:{stepSize:1}}},plugins:{legend:{position:'bottom'}}}})
 }
+function toggleMatchEvalEntry(){const e=$('matchEvalEntryForm');if(e)e.classList.toggle('hidden')}
+async function saveMatchEvaluation(playerId){
+ if(!isStaff())return;
+ const matchId=$('matchEvalMatchId').value;if(!matchId){showMessage('対象試合を選択してください。');return}
+ const data={
+  player_id:String(playerId),match_id:String(matchId),
+  attack:+$('matchEvalAttack').value||3,defense:+$('matchEvalDefense').value||3,
+  passing:+$('matchEvalPassing').value||3,dribbling:+$('matchEvalDribbling').value||3,
+  shooting:+$('matchEvalShooting').value||3,decision_making:+$('matchEvalDecision').value||3,
+  work_rate:+$('matchEvalWorkRate').value||3,communication:+$('matchEvalCommunication').value||3,
+  good_points:$('matchEvalGood').value.trim(),improvement_points:$('matchEvalImprove').value.trim(),
+  next_goal:$('matchEvalNextGoal').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()
+ };
+ const r=await sb.from('player_match_evaluations').upsert(data,{onConflict:'player_id,match_id'});
+ if(r.error){showMessage('試合評価を保存できません：'+r.error.message);return}
+ showMessage('試合評価を保存しました。','ok');
+ clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);
+ const btn=$('playerDetailContent').querySelector('[data-player-tab="match-eval"]');if(btn)switchPlayerDetailTab('match-eval',btn)
+}
+async function deleteMatchEvaluation(id,playerId){
+ if(!isStaff()||!confirm('この試合評価を削除しますか？'))return;
+ const r=await sb.from('player_match_evaluations').delete().eq('id',id);
+ if(r.error){showMessage(r.error.message);return}
+ clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);
+ const btn=$('playerDetailContent').querySelector('[data-player-tab="match-eval"]');if(btn)switchPlayerDetailTab('match-eval',btn)
+}
+function renderPlayerMatchEvalChart(id){
+ if(!window.Chart)return;const canvas=$('playerMatchEvalCanvas');if(!canvas)return;
+ const items=[...matchEvaluationsForPlayer(id)].reverse().slice(-10);
+ if(canvas._chart)canvas._chart.destroy();
+ canvas._chart=new Chart(canvas,{type:'line',data:{
+  labels:items.map(e=>{const m=matchById(e.match_id);return (m?.match_date||'').slice(5)+' '+(m?.opponent||'')}),
+  datasets:[
+   {label:'攻撃',data:items.map(e=>e.attack)},{label:'守備',data:items.map(e=>e.defense)},
+   {label:'判断力',data:items.map(e=>e.decision_making)},{label:'運動量',data:items.map(e=>e.work_rate)},
+   {label:'総合',data:items.map(e=>Number(evaluationOverall(e)))}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+  scales:{y:{beginAtZero:true,min:0,max:5,ticks:{stepSize:1}}},
+  plugins:{legend:{position:'bottom'}}}})
+}
+function prepareMatchEvaluationAi(evalId,playerId){
+ const p=players.find(x=>String(x.id)===String(playerId)),e=matchEvaluationsForPlayer(playerId).find(x=>String(x.id)===String(evalId));
+ if(!p||!e)return;const m=matchById(e.match_id);closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));
+ setAiPrompt(`${p.name}選手の試合評価をもとに、本人向けの前向きなAIアドバイスを作成してください。
+試合：${m?.match_date||''} ${m?.opponent||''} ${m?.competition||''}
+攻撃：${e.attack}/5
+守備：${e.defense}/5
+パス：${e.passing}/5
+ドリブル：${e.dribbling}/5
+シュート：${e.shooting}/5
+判断力：${e.decision_making}/5
+運動量：${e.work_rate}/5
+コミュニケーション：${e.communication}/5
+良かったところ：${e.good_points||'未入力'}
+改善したいところ：${e.improvement_points||'未入力'}
+次の具体目標：${e.next_goal||'未入力'}
+
+小学生本人に伝わる言葉で、
+1. 良かった点
+2. 次に意識する1〜2点
+3. 次回練習でできる具体メニュー
+4. 前向きな声かけ
+の順で作ってください。`)
+}
 function copyPlayerSummary(id){
  const p=players.find(x=>String(x.id)===String(id));if(!p)return;const t=totals(p);
  const text=`${p.name} 選手データ
@@ -364,7 +499,7 @@ MVP：${t.mvp}
  navigator.clipboard.writeText(text).then(()=>showMessage('選手データをコピーしました。','ok')).catch(()=>showMessage('コピーできませんでした。'));
 }
 function closePlayerDetail(){if(playerGrowthChart){playerGrowthChart.destroy();playerGrowthChart=null}$('playerDetailModal').classList.add('hidden')}
-function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p),g=growthForPlayer(id).slice(0,5),med=medicalForPlayer(id).slice(0,3),sk=skillsForPlayer(id)[0];setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n最近の成長記録：${g.length?g.map(x=>`${x.record_date} 身長${x.height_cm||'-'}cm 体重${x.weight_kg||'-'}kg 疲労${x.fatigue_level} 調子${x.condition_level} ${injuryLabel(x.injury_status)} ${growthStatusLabel(x.training_status)}`).join(' / '):'未記録'}\n最近のメディカル情報：${med.length?med.map(x=>`${x.record_date} ${x.body_part||''} ${x.diagnosis||''} 復帰予定${x.return_date||'-'}`).join(' / '):'未記録'}\n最新技術評価：${sk?`ドリブル${sk.dribbling} パス${sk.passing} シュート${sk.shooting} 守備${sk.defending} スピード${sk.speed} 判断力${sk.decision_making} フィジカル${sk.physical} メンタル${sk.mental}`:'未評価'}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
+function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p),g=growthForPlayer(id).slice(0,5),med=medicalForPlayer(id).slice(0,3),sk=skillsForPlayer(id)[0],mev=matchEvaluationsForPlayer(id).slice(0,5);setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n最近の成長記録：${g.length?g.map(x=>`${x.record_date} 身長${x.height_cm||'-'}cm 体重${x.weight_kg||'-'}kg 疲労${x.fatigue_level} 調子${x.condition_level} ${injuryLabel(x.injury_status)} ${growthStatusLabel(x.training_status)}`).join(' / '):'未記録'}\n最近のメディカル情報：${med.length?med.map(x=>`${x.record_date} ${x.body_part||''} ${x.diagnosis||''} 復帰予定${x.return_date||'-'}`).join(' / '):'未記録'}\n最新技術評価：${sk?`ドリブル${sk.dribbling} パス${sk.passing} シュート${sk.shooting} 守備${sk.defending} スピード${sk.speed} 判断力${sk.decision_making} フィジカル${sk.physical} メンタル${sk.mental}`:'未評価'}\n最近の試合評価：${mev.length?mev.map(e=>{const m=matchById(e.match_id);return `${m?.match_date||''} ${m?.opponent||''} 総合${evaluationOverall(e)} 良かった点:${e.good_points||'-'} 改善点:${e.improvement_points||'-'}`}).join(' / '):'未評価'}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
 async function savePlayer(){if(!isStaff())return;const name=$('editName').value.trim();if(!name){showMessage('名前を入力してください。');return}const id=$('editPlayerId').value||('P'+Date.now().toString(36));const data={id,name,photo_url:$('editPhotoData').value||null,number:$('editNumber').value.trim(),grade:$('editGrade').value.trim(),birth_date:$('editBirthDate').value||null,position:$('editPosition').value.trim(),dominant_foot:$('editDominantFoot').value,height_cm:+$('editHeight').value||null,weight_kg:+$('editWeight').value||null,status:$('editStatus').value,strengths:$('editStrengths').value.trim(),development_goal:$('editDevelopmentGoal').value.trim(),past_apps:+$('editPastApps').value||0,past_goals:+$('editPastGoals').value||0,past_assists:+$('editPastAssists').value||0,past_yellow:+$('editPastYellow').value||0,past_red:+$('editPastRed').value||0,updated_at:new Date().toISOString()};const r=await sb.from('players').upsert(data);if(r.error){showMessage(r.error.message);return}const privateData={player_id:String(id),fatigue_level:+$('editFatigue').value||3,condition_level:+$('editCondition').value||3,coach_note:$('editCoachNote').value.trim(),guardian_name:$('editGuardianName').value.trim(),guardian_phone:$('editGuardianPhone').value.trim(),guardian_email:$('editGuardianEmail').value.trim(),emergency_contact:$('editEmergencyContact').value.trim(),updated_at:new Date().toISOString()};const pr=await sb.from('player_private').upsert(privateData);if(pr.error){showMessage('基本情報は保存しましたが、非公開情報の保存に失敗しました：'+pr.error.message);return}closePlayerModal();showMessage('選手詳細を保存しました。','ok');await loadAll()}
 async function deletePlayer(id){if(!isStaff())return;const p=players.find(x=>x.id===id);if(!p||!confirm(`「${p.name}」を削除しますか？\nこの選手の試合記録もすべて削除されます。`))return;const rr=await sb.from('records').delete().eq('player_id',id);if(rr.error){showMessage('選手記録の削除エラー：'+rr.error.message);return}const r=await sb.from('players').delete().eq('id',id);if(r.error)showMessage(r.error.message);else{showMessage('選手を削除しました。','ok');await loadAll()}}
 async function login(){const r=await sb.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(r.error)showMessage('ログイン失敗：'+r.error.message);else showMessage('ログインしました。','ok')}

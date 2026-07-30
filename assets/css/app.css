@@ -131,3 +131,26 @@ img[loading="lazy"]{content-visibility:auto}
  .player-pager{justify-content:center}
  .pager-info{width:100%;text-align:center}
 }
+
+
+/* Ver.9.0 試合評価・AIアドバイス */
+.match-eval-entry{border:1px dashed #c4b5fd;background:#f5f3ff;border-radius:12px;padding:12px;margin:10px 0}
+.match-eval-summary{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;margin:12px 0}
+.match-eval-summary>div{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
+.match-eval-summary span{display:block;color:#64748b;font-size:11px}.match-eval-summary b{font-size:20px;color:var(--deep)}
+.match-eval-chart-wrap{height:340px;position:relative;margin:14px 0}
+.match-eval-history{display:grid;gap:10px}
+.match-eval-row{display:grid;grid-template-columns:190px 1fr 1.8fr auto;gap:10px;align-items:start;border:1px solid var(--line);border-radius:12px;padding:11px;background:#fff}
+.match-eval-row>div:first-child span{display:block;color:#64748b;font-size:12px;margin-top:4px}
+.match-eval-scores{display:flex;gap:5px;flex-wrap:wrap}
+.match-eval-scores span{background:#e0e7ff;color:#3730a3;border-radius:999px;padding:4px 7px;font-size:12px}
+.match-eval-comments p{margin:0 0 5px;white-space:pre-wrap}
+.match-eval-actions{display:grid;gap:6px}
+@media(max-width:900px){
+ .match-eval-summary{grid-template-columns:repeat(4,1fr)}
+ .match-eval-row{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+ .match-eval-summary{grid-template-columns:repeat(2,1fr)}
+ .match-eval-chart-wrap{height:280px}
+}
