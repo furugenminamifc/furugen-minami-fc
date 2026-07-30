@@ -33,7 +33,167 @@ async function loadAll(){
 function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).subscribe()}
 function totals(p){const rr=records.filter(x=>x.player_id===p.id);return{apps:(p.past_apps||0)+rr.filter(x=>x.played).length,minutes:rr.reduce((a,x)=>a+(x.minutes||0),0),goals:(p.past_goals||0)+rr.reduce((a,x)=>a+(x.goals||0),0),assists:(p.past_assists||0)+rr.reduce((a,x)=>a+(x.assists||0),0),yellow:(p.past_yellow||0)+rr.reduce((a,x)=>a+(x.yellow||0),0),red:(p.past_red||0)+rr.reduce((a,x)=>a+(x.red||0),0),mvp:rr.filter(x=>x.mvp).length}}
 function refreshFilters(){const seasons=[...new Set(matches.map(x=>x.season||String(x.match_date||'').slice(0,4)).filter(Boolean))].sort().reverse();$('matchSeason').innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');const grades=[...new Set(players.map(x=>x.grade).filter(Boolean))].sort();$('rankGrade').innerHTML='<option value="">すべて</option>'+grades.map(x=>`<option>${esc(x)}</option>`).join('');const as=$('analysisSeason'),ac=$('analysisCompetition');if(as){const seasons=[...new Set(matches.map(x=>x.season).filter(Boolean))].sort((a,b)=>b-a);const keep=as.value;as.innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');as.value=keep}if(ac){const comps=[...new Set(matches.map(x=>x.competition||'通常試合'))].sort((a,b)=>a.localeCompare(b,'ja'));const keep=ac.value;ac.innerHTML='<option value="">すべて</option>'+comps.map(x=>`<option>${esc(x)}</option>`).join('');ac.value=keep}}
-function renderAll(){renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
+
+function coachTotalsForPlayer(p){
+ const t=totals(p);
+ const evals=(typeof playerMatchEvaluations!=='undefined'?playerMatchEvaluations:[]).filter(x=>String(x.player_id)===String(p.id));
+ const avg=evals.length?(evals.reduce((s,e)=>s+Number(evaluationOverall(e)),0)/evals.length).toFixed(1):'未評価';
+ return {...t,evalAvg:avg}
+}
+function coachSendPrompt(mode,prompt){
+ showPage('ai');
+ const btn=document.querySelector(`[data-mode="${mode}"]`)||document.querySelector('[data-mode="match"]');
+ if(btn)setAiMode(mode,btn);
+ setAiPrompt(prompt);
+ showMessage('AI Coachの分析材料をセットしました。内容を確認してAIへ送信してください。','ok')
+}
+function renderAiCoachDashboard(){
+ const stats=$('coachStats');if(!stats)return;
+ const recent=matches[0];
+ const totalMinutes=players.reduce((s,p)=>s+totals(p).minutes,0);
+ stats.innerHTML=`
+  <div><span>選手</span><b>${players.length}</b></div>
+  <div><span>試合</span><b>${matches.length}</b></div>
+  <div><span>総得点</span><b>${players.reduce((s,p)=>s+totals(p).goals,0)}</b></div>
+  <div><span>総出場時間</span><b>${totalMinutes}分</b></div>
+  <div><span>直近試合</span><b>${recent?esc(recent.opponent||'対戦相手未設定'):'未登録'}</b></div>`;
+ const ms=$('coachMatchSelect');
+ if(ms)ms.innerHTML=matches.map(m=>`<option value="${m.id}">${esc(m.match_date||'')} ${esc(m.opponent||'対戦相手未設定')} ${Number(m.goals_for||0)}-${Number(m.goals_against||0)}</option>`).join('')||'<option value="">試合未登録</option>';
+ const ps=$('coachPlayerSelect');
+ if(ps)ps.innerHTML=players.map(p=>`<option value="${p.id}">${esc(p.name)} / ${esc(p.grade)} / ${esc(p.position)}</option>`).join('');
+ const gs=$('coachGradeSelect');
+ if(gs){
+  const current=gs.value;
+  const grades=[...new Set(players.map(p=>p.grade).filter(Boolean))].sort();
+  gs.innerHTML='<option value="">全学年</option>'+grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  gs.value=current
+ }
+}
+function runCoachMatchDiagnosis(){
+ const id=$('coachMatchSelect')?.value,m=matches.find(x=>String(x.id)===String(id));
+ if(!m){showMessage('対象試合を選択してください。');return}
+ const recs=records.filter(r=>String(r.match_id)===String(id));
+ const playerRows=recs.map(r=>{
+  const p=players.find(x=>String(x.id)===String(r.player_id));
+  return `${p?.name||'不明'} 出場${r.played?'有':'無'} 時間${r.minutes||0} 得点${r.goals||0} アシスト${r.assists||0} MVP${r.mvp?'有':'無'}`
+ }).join(' / ');
+ const prompt=`少年サッカーチームの試合診断をしてください。
+試合：${m.match_date||''} ${m.competition||''} 対 ${m.opponent||''}
+結果：古堅南FC ${m.goals_for||0}-${m.goals_against||0} 相手
+メモ：${m.memo||'未入力'}
+選手記録：${playerRows||'未入力'}
+
+次の順で作成してください。
+1. 試合総評
+2. 攻撃の良かった点と課題
+3. 守備の良かった点と課題
+4. 選手への声かけ
+5. 次回練習メニュー3つ
+小学生に適した安全で前向きな内容にしてください。`;
+ coachSendPrompt('match',prompt)
+}
+function runCoachLineup(){
+ const count=Math.max(5,Math.min(11,Number($('coachLineupCount')?.value)||8));
+ const grade=$('coachGradeSelect')?.value||'';
+ const pool=players.filter(p=>p.status==='現役'&&(!grade||p.grade===grade)).map(p=>{
+  const t=totals(p);
+  return `${p.name} 学年:${p.grade} 位置:${p.position} 出場:${t.apps} 時間:${t.minutes} 得点:${t.goals} アシスト:${t.assists}`
+ }).join('\n');
+ const prompt=`次の登録選手から${count}人制サッカーのスタメン案と交代案を作成してください。
+対象：${grade||'全学年'}
+選手：
+${pool}
+
+条件：
+・GPを必ず含める
+・ポジションバランスを優先
+・出場時間が少ない選手にも成長機会を与える
+・特定選手へ負担を偏らせない
+・フォーメーション、先発、控え、交代目安、理由を示す
+・最終判断はコーチが行う前提で提案する`;
+ coachSendPrompt('lineup',prompt)
+}
+function runCoachTrainingPlan(){
+ const min=$('coachTrainingMinutes')?.value||60;
+ const recent=matches.slice(0,5).map(m=>`${m.match_date||''} ${m.opponent||''} ${m.goals_for||0}-${m.goals_against||0} メモ:${m.memo||'-'}`).join(' / ');
+ const prompt=`古堅南FC小学生向けの${min}分練習メニューを作成してください。
+最近の試合：${recent||'試合データ未登録'}
+登録人数：${players.filter(p=>p.status==='現役').length}人
+
+構成：
+・ウォーミングアップ
+・技術トレーニング
+・判断を伴う対人またはポゼッション
+・ゲーム
+・クールダウン
+各メニューの時間、人数、コートサイズ、目的、コーチングポイント、安全上の注意を記載してください。`;
+ coachSendPrompt('training',prompt)
+}
+async function runCoachPlayerDevelopment(){
+ const id=$('coachPlayerSelect')?.value,p=players.find(x=>String(x.id)===String(id));
+ if(!p){showMessage('選手を選択してください。');return}
+ await loadPlayerDetailData(id);
+ const t=totals(p),growth=growthForPlayer(id).slice(0,5),skills=skillsForPlayer(id)[0],evals=matchEvaluationsForPlayer(id).slice(0,5);
+ const prompt=`${p.name}選手の育成診断を作成してください。
+学年:${p.grade} ポジション:${p.position}
+出場:${t.apps}試合 ${t.minutes}分 得点:${t.goals} アシスト:${t.assists}
+強み:${p.strengths||'未入力'}
+成長目標:${p.development_goal||'未入力'}
+成長記録:${growth.map(x=>`${x.record_date||''} ${x.note||x.coach_comment||''}`).join(' / ')||'未入力'}
+技術評価:${skills?JSON.stringify(skills):'未評価'}
+最近の試合評価:${evals.map(e=>`総合${evaluationOverall(e)} 良い点:${e.good_points||'-'} 改善:${e.improvement_points||'-'}`).join(' / ')||'未評価'}
+
+本人向けに、
+1. できていること
+2. 次に伸ばす1〜2点
+3. 自主練メニュー
+4. 次の試合の具体目標
+5. 前向きな一言
+を小学生に伝わる表現で作成してください。`;
+ coachSendPrompt('player',prompt)
+}
+function runCoachVideoAnalysis(){
+ const url=$('coachVideoUrl')?.value.trim()||'',notes=$('coachVideoNotes')?.value.trim()||'';
+ if(!url&&!notes){showMessage('動画URLまたはタイムスタンプメモを入力してください。');return}
+ const prompt=`次のサッカー試合動画メモを分析してください。
+動画URL:${url||'未入力'}
+タイムスタンプ・場面メモ:
+${notes||'未入力'}
+
+映像を直接見たとは断定せず、提供されたメモを根拠に、
+1. 時系列の重要場面
+2. 攻撃傾向
+3. 守備傾向
+4. 良かったプレー
+5. 改善ポイント
+6. 次回練習メニュー
+7. 追加で記録すべきタイムスタンプ
+を作成してください。`;
+ coachSendPrompt('match',prompt)
+}
+function runCoachSeasonAnalysis(){
+ const games=matches.map(m=>`${m.match_date||''} ${m.competition||''} 対${m.opponent||''} ${m.goals_for||0}-${m.goals_against||0}`).join('\n');
+ const rank=[...players].map(p=>({p,t:totals(p)})).sort((a,b)=>b.t.goals-a.t.goals).slice(0,10)
+  .map(x=>`${x.p.name} 出場${x.t.apps} 時間${x.t.minutes} 得点${x.t.goals} アシスト${x.t.assists}`).join('\n');
+ const prompt=`古堅南FCの年間・大会分析を作成してください。
+試合一覧:
+${games||'未登録'}
+
+主な選手成績:
+${rank||'未登録'}
+
+次の順で作成してください。
+1. 成績概要
+2. 攻撃と守備の傾向
+3. 出場時間の偏りへの配慮
+4. 得点・アシスト・成長が目立つ選手
+5. チームの次の3か月目標
+6. 年間育成方針
+順位付けだけに偏らず、全選手の成長機会を重視してください。`;
+ coachSendPrompt('season',prompt)
+}
+
+function renderAll(){renderAiCoachDashboard();renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
 function renderDashboard(){let w=0,d=0,l=0,gf=0,ga=0;matches.forEach(m=>{gf+=m.goals_for||0;ga+=m.goals_against||0;m.goals_for>m.goals_against?w++:m.goals_for<m.goals_against?l++:d++});const rate=matches.length?Math.round(w/matches.length*100):0;$('stats').innerHTML=[['選手',players.length],['試合',matches.length],['勝利',w],['引分',d],['敗戦',l],['勝率',rate+'%'],['得点',gf],['失点',ga]].map(x=>`<div class="card stat"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');$('recent').innerHTML=matches.slice(0,6).map(matchHtml).join('')||'<p class="muted">まだ試合がありません。</p>'}
 function resultClass(m){return m.goals_for>m.goals_against?'win':m.goals_for<m.goals_against?'loss':'draw'}
 function matchHtml(m){return `<div class="match-row"><div><b>${esc(m.match_date)}</b> <span class="pill">${esc(m.competition||'通常試合')}</span><div class="muted">${esc(m.venue||'')} ${esc(m.memo||'')}</div></div><div><span class="score ${resultClass(m)}">${m.goals_for} - ${m.goals_against}</span><br>${esc(m.opponent)}</div></div>`}
