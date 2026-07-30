@@ -385,3 +385,22 @@ img[loading="lazy"]{content-visibility:auto}
 .coach-safety{display:flex;gap:10px;margin-top:14px;padding:12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
 @media(max-width:1000px){.coach-grid{grid-template-columns:repeat(2,1fr)}.coach-stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:650px){.coach-hero{align-items:flex-start;flex-direction:column}.coach-grid{grid-template-columns:1fr}.coach-stats{grid-template-columns:repeat(2,1fr)}.coach-inline{grid-template-columns:1fr}.coach-safety{flex-direction:column}}
+
+
+/* Ver.11.0 日本一使いやすいAI Coach */
+.coach11-hero{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:22px;border-radius:20px;background:linear-gradient(135deg,#073763,#0b7fb8);color:#fff;margin-bottom:12px}
+.coach11-hero h2{margin:6px 0}.coach11-hero p{margin:0;opacity:.92}
+.coach11-hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.coach11-modebar{display:flex;gap:7px;overflow:auto;padding:4px 0 12px}
+.coach11-modebar button{white-space:nowrap;background:#e2e8f0;color:#334155}
+.coach11-modebar button.active{background:#0f5f94;color:#fff}
+.coach11-step-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.coach11-step{display:grid;gap:5px;text-align:left;background:#fff;color:#0f172a;border:1px solid var(--line);border-radius:14px;padding:14px}
+.coach11-step span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#0f5f94;color:#fff;font-weight:800}
+.coach11-step b{font-size:15px}.coach11-step small{color:#64748b}
+.coach11-summary-box{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.coach11-summary-box h3{margin:0 0 8px}.coach11-guide{display:grid;gap:5px;color:#475569}
+.coach-grid-2{grid-template-columns:repeat(2,1fr)}
+.coach-video-card{max-width:820px}.coach11-video-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:900px){.coach11-step-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.coach11-hero{align-items:flex-start;flex-direction:column}.coach11-hero-actions{width:100%}.coach11-hero-actions button{flex:1}.coach11-step-grid,.coach-grid-2{grid-template-columns:1fr}.coach11-modebar{position:sticky;top:0;background:#fff;z-index:9}}

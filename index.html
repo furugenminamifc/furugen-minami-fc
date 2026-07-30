@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.10.0</title>
+<title>古堅南FC AI Coach Ver.11.0</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=10.0.0">
+<link rel="stylesheet" href="./assets/css/app.css?v=11.0.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.10.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.11.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -185,79 +185,133 @@
 </section>
 <section id="settings" class="page"><div class="card"><h3>🛡 チーム設定</h3><div class="team-preview"><img id="emblemPreview" alt="チームエンブム"><div class="field"><label>チーム名</label><input id="teamName" value="古堅南FC"><label>チームエンブレム画像</label><input id="emblemFile" type="file" accept="image/*" onchange="previewEmblem(this)"><div class="muted">画像は自動で小さくしてSupabaseに保存し、全端末へ同期します。</div><br><button onclick="saveTeamSettings()">チーム設定を保存</button></div></div></div></section>
 
+
 <section id="coach" class="page">
-  <div class="coach-hero">
+  <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.10.0</span>
-      <h2>🧠 AIコーチングセンター</h2>
-      <p>試合・選手評価・出場時間・成長カルテをまとめて、指導案へ変換します。</p>
+      <span class="coach-version">古堅南FC AI Coach Ver.11.0</span>
+      <h2>日本一使いやすい少年サッカーAIコーチ</h2>
+      <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
-    <button class="light" onclick="renderAiCoachDashboard()">最新データに更新</button>
+    <div class="coach11-hero-actions">
+      <button class="light" onclick="startCoachQuickFlow()">▶ 5分クイック開始</button>
+      <button class="light" onclick="renderAiCoachDashboard()">最新データに更新</button>
+    </div>
+  </div>
+
+  <div class="coach11-modebar">
+    <button class="active" data-coach-mode="quick" onclick="switchCoach11Mode('quick',this)">⚡ クイック</button>
+    <button data-coach-mode="match" onclick="switchCoach11Mode('match',this)">⚽ 試合</button>
+    <button data-coach-mode="player" onclick="switchCoach11Mode('player',this)">👤 選手</button>
+    <button data-coach-mode="season" onclick="switchCoach11Mode('season',this)">🏆 年間</button>
+    <button data-coach-mode="video" onclick="switchCoach11Mode('video',this)">🎥 動画</button>
   </div>
 
   <div id="coachStats" class="coach-stats"></div>
 
-  <div class="coach-grid">
-    <article class="coach-card">
-      <div class="coach-icon">⚽</div>
-      <h3>AI試合診断</h3>
-      <p>直近試合の結果、選手記録、評価コメントから総評・課題・練習案を作成。</p>
-      <select id="coachMatchSelect"></select>
-      <button onclick="runCoachMatchDiagnosis()">診断データをAIへ送る</button>
-    </article>
+  <div id="coach11-quick" class="coach11-panel">
+    <div class="coach11-step-grid">
+      <button class="coach11-step" onclick="showPage('entry')"><span>1</span><b>試合を入力</b><small>スコア・出場・得点</small></button>
+      <button class="coach11-step" onclick="showPage('entry')"><span>2</span><b>選手を評価</b><small>1〜5をワンタップ</small></button>
+      <button class="coach11-step" onclick="runCoachMatchDiagnosis()"><span>3</span><b>AI試合診断</b><small>総評・課題・練習案</small></button>
+      <button class="coach11-step" onclick="generateParentsMessageDraftFromCoach()"><span>4</span><b>保護者連絡</b><small>LINE文面を自動作成</small></button>
+    </div>
+    <div class="coach11-summary-box">
+      <h3>今日のおすすめ操作</h3>
+      <div id="coach11TodayGuide" class="coach11-guide"></div>
+    </div>
+  </div>
 
-    <article class="coach-card">
-      <div class="coach-icon">👥</div>
-      <h3>スタメン提案</h3>
-      <p>ポジション、出場時間、得点、評価、疲労度を参考にメンバー案を作成。</p>
-      <div class="coach-inline">
-        <label>人数<input id="coachLineupCount" type="number" min="5" max="11" value="8"></label>
-        <label>対象学年<select id="coachGradeSelect"><option value="">全学年</option></select></label>
-      </div>
-      <button onclick="runCoachLineup()">スタメン案を作成</button>
-    </article>
+  <div id="coach11-match" class="coach11-panel hidden">
+    <div class="coach-grid coach-grid-2">
+      <article class="coach-card">
+        <div class="coach-icon">⚽</div>
+        <h3>AI試合診断</h3>
+        <p>試合結果、選手記録、評価コメントから総評・課題・練習案を作成します。</p>
+        <select id="coachMatchSelect"></select>
+        <button onclick="runCoachMatchDiagnosis()">診断データをAIへ送る</button>
+      </article>
+      <article class="coach-card">
+        <div class="coach-icon">👥</div>
+        <h3>スタメン・交代提案</h3>
+        <p>ポジション、出場時間、得点、評価、成長機会を考慮します。</p>
+        <div class="coach-inline">
+          <label>人数<input id="coachLineupCount" type="number" min="5" max="11" value="8"></label>
+          <label>学年<select id="coachGradeSelect"><option value="">全学年</option></select></label>
+        </div>
+        <button onclick="runCoachLineup()">スタメン案を作成</button>
+      </article>
+      <article class="coach-card">
+        <div class="coach-icon">🏃</div>
+        <h3>次回練習メニュー</h3>
+        <p>最近の試合課題から、時間・人数に合わせた練習を提案します。</p>
+        <select id="coachTrainingMinutes">
+          <option value="60">60分</option><option value="90">90分</option><option value="120">120分</option>
+        </select>
+        <button onclick="runCoachTrainingPlan()">練習案を作成</button>
+      </article>
+      <article class="coach-card">
+        <div class="coach-icon">📣</div>
+        <h3>保護者向け試合報告</h3>
+        <p>応援へのお礼、試合の様子、成長、次回への意気込みをまとめます。</p>
+        <button onclick="generateParentsMessageDraftFromCoach()">保護者向け文面を作成</button>
+      </article>
+    </div>
+  </div>
 
-    <article class="coach-card">
-      <div class="coach-icon">🏃</div>
-      <h3>次回練習メニュー</h3>
-      <p>試合評価の低い項目とコーチコメントから60分・90分の練習を提案。</p>
-      <select id="coachTrainingMinutes">
-        <option value="60">60分</option>
-        <option value="90">90分</option>
-        <option value="120">120分</option>
-      </select>
-      <button onclick="runCoachTrainingPlan()">練習案を作成</button>
-    </article>
+  <div id="coach11-player" class="coach11-panel hidden">
+    <div class="coach-grid coach-grid-2">
+      <article class="coach-card">
+        <div class="coach-icon">📈</div>
+        <h3>選手育成診断</h3>
+        <p>個人成績、評価、成長目標から本人向けアドバイスを作成します。</p>
+        <select id="coachPlayerSelect"></select>
+        <button onclick="runCoachPlayerDevelopment()">育成診断を作成</button>
+      </article>
+      <article class="coach-card">
+        <div class="coach-icon">📝</div>
+        <h3>個人レポート下書き</h3>
+        <p>選手カルテをもとに、保護者面談や本人への声かけに使える文章を作成します。</p>
+        <button onclick="runCoachPlayerReport()">個人レポートを作成</button>
+      </article>
+    </div>
+  </div>
 
-    <article class="coach-card">
-      <div class="coach-icon">📈</div>
-      <h3>選手育成診断</h3>
-      <p>個人成績、試合評価、成長目標から、本人向けの具体的な助言を作成。</p>
-      <select id="coachPlayerSelect"></select>
-      <button onclick="runCoachPlayerDevelopment()">育成診断を作成</button>
-    </article>
+  <div id="coach11-season" class="coach11-panel hidden">
+    <div class="coach-grid coach-grid-2">
+      <article class="coach-card">
+        <div class="coach-icon">📅</div>
+        <h3>年間・大会分析</h3>
+        <p>勝敗、得失点、出場時間、ランキングをまとめて分析します。</p>
+        <button onclick="runCoachSeasonAnalysis()">シーズン分析を作成</button>
+      </article>
+      <article class="coach-card">
+        <div class="coach-icon">🏅</div>
+        <h3>AI年間表彰</h3>
+        <p>MVP、得点王、アシスト王、成長賞、努力賞などの候補を作成します。</p>
+        <button onclick="runCoachSeasonAwards()">表彰候補を作成</button>
+      </article>
+    </div>
+  </div>
 
-    <article class="coach-card">
+  <div id="coach11-video" class="coach11-panel hidden">
+    <article class="coach-card coach-video-card">
       <div class="coach-icon">🎥</div>
       <h3>動画タイムスタンプ分析</h3>
-      <p>動画URLと場面メモをAIへ渡し、攻守の傾向・改善点・練習案を整理。</p>
+      <p>動画URLと場面メモをAIへ渡し、攻守の傾向・改善点・練習案を整理します。</p>
       <input id="coachVideoUrl" placeholder="YouTube限定公開・Google DriveなどのURL">
       <textarea id="coachVideoNotes" placeholder="例：05:21 右サイドからチャンス&#10;12:30 守備ラインが下がる&#10;18:10 得点"></textarea>
-      <button onclick="runCoachVideoAnalysis()">動画メモを分析</button>
-      <small>※Ver.10.0はURL・タイムスタンプ・メモを使う分析です。動画映像そのものの自動認識は次段階です。</small>
-    </article>
-
-    <article class="coach-card">
-      <div class="coach-icon">📅</div>
-      <h3>年間・大会分析</h3>
-      <p>勝敗、得失点、ランキング、出場時間の偏りからチーム全体を分析。</p>
-      <button onclick="runCoachSeasonAnalysis()">シーズン分析を作成</button>
+      <div class="coach11-video-actions">
+        <button onclick="runCoachVideoAnalysis()">動画メモを分析</button>
+        <button class="light" onclick="insertVideoNoteTemplate()">入力例を入れる</button>
+      </div>
+      <small>Ver.11.0では、URL・タイムスタンプ・場面メモを分析します。映像そのものの自動追跡は次段階です。</small>
     </article>
   </div>
 
   <div class="coach-safety">
     <b>安全な使い方</b>
-    <span>AIの提案は参考案です。体調・ケガ・本人の気持ち・当日の状況を優先し、最終判断は指導者が行ってください。</span>
+    <span>AIは参考案です。体調・ケガ・本人の気持ち・当日の様子を優先し、最終判断は指導者が行ってください。</span>
   </div>
 </section>
 <section id="login" class="page"><div class="card"><h3>管理者・コーチログイン</h3><div id="loginOut"><label>メール</label><input id="loginEmail" type="email"><label>パスワード</label><input id="loginPassword" type="password"><br><button onclick="login()">ログイン</button></div><div id="loginIn" class="hidden"><p id="loginWho"></p><button class="secondary" onclick="logout()">ログアウト</button></div><hr><div class="muted">保護者はログインせず閲覧できます。入力権限はSupabaseの profiles テーブルで admin または coach に設定したアカウントだけです。</div></div></section>
@@ -323,5 +377,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=10.0.0"></script>
+<script src="./assets/js/app.js?v=11.0.0"></script>
 </body></html>

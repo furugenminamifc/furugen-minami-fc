@@ -47,6 +47,64 @@ function coachSendPrompt(mode,prompt){
  setAiPrompt(prompt);
  showMessage('AI Coachの分析材料をセットしました。内容を確認してAIへ送信してください。','ok')
 }
+function switchCoach11Mode(mode,btn){
+ document.querySelectorAll('.coach11-panel').forEach(x=>x.classList.add('hidden'));
+ const panel=$(`coach11-${mode}`);if(panel)panel.classList.remove('hidden');
+ document.querySelectorAll('[data-coach-mode]').forEach(x=>x.classList.remove('active'));
+ if(btn)btn.classList.add('active')
+}
+function startCoachQuickFlow(){showPage('entry');showMessage('①試合情報 → ②出場選手 → ③評価 → ④保存の順で入力してください。','ok')}
+function coachLatestMatch(){return matches[0]||null}
+function generateParentsMessageDraftFromCoach(){
+ const m=coachLatestMatch();
+ const prompt=`少年サッカーチームの保護者向け試合報告文を作成してください。
+試合：${m?`${m.match_date||''} 対 ${m.opponent||''} ${m.goals_for||0}-${m.goals_against||0}`:'試合未登録'}
+メモ：${m?.memo||'未入力'}
+300文字以内、LINEで送りやすい文章にしてください。
+構成：応援へのお礼、試合の様子、成長、次回への意気込み。`;
+ coachSendPrompt('parents',prompt)
+}
+function runCoachPlayerReport(){
+ const id=$('coachPlayerSelect')?.value,p=players.find(x=>String(x.id)===String(id));
+ if(!p){showMessage('選手を選択してください。');return}
+ const t=totals(p);
+ const prompt=`${p.name}選手の個人レポート下書きを作成してください。
+学年:${p.grade} ポジション:${p.position}
+出場:${t.apps}試合 ${t.minutes}分 得点:${t.goals} アシスト:${t.assists}
+強み:${p.strengths||'未入力'}
+成長目標:${p.development_goal||'未入力'}
+
+保護者面談と本人への声かけに使えるよう、
+1. 今できていること
+2. 成長した点
+3. 次の課題
+4. 家庭でできる応援
+5. コーチからの前向きな一言
+の順で作成してください。`;
+ coachSendPrompt('player',prompt)
+}
+function runCoachSeasonAwards(){
+ const rows=players.map(p=>({p,t:totals(p)}));
+ const goals=[...rows].sort((a,b)=>b.t.goals-a.t.goals).slice(0,5);
+ const assists=[...rows].sort((a,b)=>b.t.assists-a.t.assists).slice(0,5);
+ const minutes=[...rows].sort((a,b)=>b.t.minutes-a.t.minutes).slice(0,5);
+ const prompt=`古堅南FCの年間表彰候補を作成してください。
+得点上位:${goals.map(x=>`${x.p.name}${x.t.goals}点`).join('、')}
+アシスト上位:${assists.map(x=>`${x.p.name}${x.t.assists}`).join('、')}
+出場時間上位:${minutes.map(x=>`${x.p.name}${x.t.minutes}分`).join('、')}
+
+次の表彰候補を、根拠付きで提案してください。
+MVP、得点王、アシスト王、守備賞、成長賞、努力賞、フェアプレー賞。
+成績だけで決めず、全選手の成長機会を大切にする注意書きも入れてください。`;
+ coachSendPrompt('season',prompt)
+}
+function insertVideoNoteTemplate(){
+ const e=$('coachVideoNotes');if(!e)return;
+ e.value=`05:21 右サイドから決定機
+12:30 守備ラインが下がる
+18:10 得点
+24:40 ボールロスト後の切り替えが遅い`;
+}
 function renderAiCoachDashboard(){
  const stats=$('coachStats');if(!stats)return;
  const recent=matches[0];
@@ -67,6 +125,14 @@ function renderAiCoachDashboard(){
   const grades=[...new Set(players.map(p=>p.grade).filter(Boolean))].sort();
   gs.innerHTML='<option value="">全学年</option>'+grades.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
   gs.value=current
+ }
+ const guide=$('coach11TodayGuide');
+ if(guide){
+  const latest=matches[0];
+  guide.innerHTML=latest
+   ? `<b>直近試合：${esc(latest.match_date||'')} 対 ${esc(latest.opponent||'未設定')}</b>
+      <span>まず試合入力を確認し、次にAI試合診断、最後に保護者連絡文を作成する流れがおすすめです。</span>`
+   : `<b>まだ試合が登録されていません。</b><span>「試合を入力」から始めてください。</span>`
  }
 }
 function runCoachMatchDiagnosis(){
