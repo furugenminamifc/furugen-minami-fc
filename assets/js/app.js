@@ -466,7 +466,19 @@ function coach15BoardPlayers(){
 function renderCoach15Board(){
  const pitch=$('coach15Pitch');if(!pitch)return;
  const formation=$('coach15Formation')?.value||'3-2-2',slots=coach15FormationSlots(formation),selected=coach15BoardPlayers();
- pitch.innerHTML=slots.map((s,i)=>`<div class="coach15-player" style="left:${s[1]}%;top:${s[2]}%">
+ const markings=`<div class="pitch-outline"></div>
+  <div class="pitch-halfway"></div>
+  <div class="pitch-center-circle"></div>
+  <div class="pitch-center-spot"></div>
+  <div class="pitch-box pitch-box-top"></div>
+  <div class="pitch-goalbox pitch-goalbox-top"></div>
+  <div class="pitch-goal pitch-goal-top"></div>
+  <div class="pitch-arc pitch-arc-top"></div>
+  <div class="pitch-box pitch-box-bottom"></div>
+  <div class="pitch-goalbox pitch-goalbox-bottom"></div>
+  <div class="pitch-goal pitch-goal-bottom"></div>
+  <div class="pitch-arc pitch-arc-bottom"></div>`;
+ pitch.innerHTML=markings+slots.map((s,i)=>`<div class="coach15-player" style="left:${s[1]}%;top:${s[2]}%">
    <span>${s[0]}</span><b>${esc(selected[i]?.name||'未選択')}</b>
   </div>`).join('')
 }
