@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.11.0</title>
+<title>古堅南FC AI Coach Ver.12.0</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=11.0.0">
+<link rel="stylesheet" href="./assets/css/app.css?v=12.0.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.11.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.12.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -189,8 +189,8 @@
 <section id="coach" class="page">
   <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.11.0</span>
-      <h2>日本一使いやすい少年サッカーAIコーチ</h2>
+      <span class="coach-version">古堅南FC AI Coach Ver.12.0</span>
+      <h2>コーチの仕事を本当に支えるAI</h2>
       <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
     <div class="coach11-hero-actions">
@@ -219,6 +219,43 @@
     <div class="coach11-summary-box">
       <h3>今日のおすすめ操作</h3>
       <div id="coach11TodayGuide" class="coach11-guide"></div>
+    </div>
+
+    <div class="coach12-workbench">
+      <section class="coach12-panel">
+        <div class="coach12-panel-head">
+          <div><span>試合後業務</span><h3>5分コーチワークフロー</h3></div>
+          <button class="light" onclick="resetCoach12Checklist()">リセット</button>
+        </div>
+        <label class="coach12-check"><input type="checkbox" data-coach12-task="match" onchange="saveCoach12Checklist()">① 試合結果・出場記録を確認</label>
+        <label class="coach12-check"><input type="checkbox" data-coach12-task="rating" onchange="saveCoach12Checklist()">② 選手評価・MVPを入力</label>
+        <label class="coach12-check"><input type="checkbox" data-coach12-task="report" onchange="saveCoach12Checklist()">③ AI試合レポートを作成</label>
+        <label class="coach12-check"><input type="checkbox" data-coach12-task="parents" onchange="saveCoach12Checklist()">④ 保護者向け連絡文を作成</label>
+        <label class="coach12-check"><input type="checkbox" data-coach12-task="training" onchange="saveCoach12Checklist()">⑤ 次回練習メニューを決定</label>
+        <div class="coach12-progress"><span id="coach12TaskBar"></span></div>
+        <div id="coach12TaskText" class="muted">0 / 5 完了</div>
+      </section>
+
+      <section class="coach12-panel">
+        <div class="coach12-panel-head">
+          <div><span>自動点検</span><h3>コーチ注意アラート</h3></div>
+          <button class="light" onclick="renderCoach12Alerts()">再確認</button>
+        </div>
+        <div id="coach12Alerts" class="coach12-alerts"></div>
+      </section>
+    </div>
+
+    <div class="coach12-reportbox">
+      <div class="coach12-panel-head">
+        <div><span>ワンクリック作成</span><h3>AI試合レポート・保護者共有</h3></div>
+      </div>
+      <div class="coach12-report-actions">
+        <button onclick="runCoach12FullReport()">📄 試合レポート一式</button>
+        <button class="light" onclick="generateParentsMessageDraftFromCoach()">📣 保護者LINE文面</button>
+        <button class="light" onclick="runCoachTrainingPlan()">🏃 次回練習案</button>
+        <button class="light" onclick="copyCoach12ShareSummary()">📋 共有用要約をコピー</button>
+      </div>
+      <textarea id="coach12ShareSummary" placeholder="共有用の短い試合要約がここに表示されます。"></textarea>
     </div>
   </div>
 
@@ -377,5 +414,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=11.0.0"></script>
+<script src="./assets/js/app.js?v=12.0.0"></script>
 </body></html>

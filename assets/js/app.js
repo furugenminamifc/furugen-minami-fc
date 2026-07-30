@@ -47,6 +47,97 @@ function coachSendPrompt(mode,prompt){
  setAiPrompt(prompt);
  showMessage('AI Coachの分析材料をセットしました。内容を確認してAIへ送信してください。','ok')
 }
+
+function coach12StorageKey(){return 'furugenCoach12Tasks'}
+function loadCoach12Checklist(){
+ let state={};try{state=JSON.parse(localStorage.getItem(coach12StorageKey())||'{}')}catch(e){}
+ document.querySelectorAll('[data-coach12-task]').forEach(x=>x.checked=!!state[x.dataset.coach12Task]);
+ updateCoach12Checklist()
+}
+function saveCoach12Checklist(){
+ const state={};document.querySelectorAll('[data-coach12-task]').forEach(x=>state[x.dataset.coach12Task]=x.checked);
+ localStorage.setItem(coach12StorageKey(),JSON.stringify(state));updateCoach12Checklist()
+}
+function resetCoach12Checklist(){
+ localStorage.removeItem(coach12StorageKey());
+ document.querySelectorAll('[data-coach12-task]').forEach(x=>x.checked=false);
+ updateCoach12Checklist()
+}
+function updateCoach12Checklist(){
+ const all=[...document.querySelectorAll('[data-coach12-task]')],done=all.filter(x=>x.checked).length;
+ const bar=$('coach12TaskBar'),text=$('coach12TaskText');
+ if(bar)bar.style.width=`${all.length?done/all.length*100:0}%`;
+ if(text)text.textContent=`${done} / ${all.length} 完了`
+}
+function coach12RecentEvaluations(){
+ return typeof playerMatchEvaluations!=='undefined' ? playerMatchEvaluations : []
+}
+function renderCoach12Alerts(){
+ const box=$('coach12Alerts');if(!box)return;
+ const alerts=[];
+ const active=players.filter(p=>p.status==='現役');
+ if(!matches.length)alerts.push({level:'info',text:'試合がまだ登録されていません。'});
+ const noPosition=active.filter(p=>!p.position).length;
+ if(noPosition)alerts.push({level:'warn',text:`ポジション未設定の現役選手が${noPosition}人います。`});
+ const noPhoto=active.filter(p=>!p.photo_url).length;
+ if(noPhoto)alerts.push({level:'info',text:`写真未登録の現役選手が${noPhoto}人います。`});
+ const totalsRows=active.map(p=>({p,t:totals(p)}));
+ const maxMin=Math.max(0,...totalsRows.map(x=>x.t.minutes));
+ const minMin=Math.min(...totalsRows.map(x=>x.t.minutes));
+ if(active.length>1 && maxMin-minMin>=120)alerts.push({level:'warn',text:`出場時間の最大差が${maxMin-minMin}分あります。育成機会の偏りを確認してください。`});
+ const latest=matches[0];
+ if(latest){
+  const recs=records.filter(r=>String(r.match_id)===String(latest.id));
+  const played=recs.filter(r=>r.played).length;
+  if(!played)alerts.push({level:'danger',text:'直近試合の出場選手が登録されていません。'});
+  if(!latest.memo)alerts.push({level:'info',text:'直近試合のコーチメモが未入力です。'});
+ }
+ if(!alerts.length)alerts.push({level:'ok',text:'現在、優先して確認する注意点はありません。'});
+ box.innerHTML=alerts.map(a=>`<div class="coach12-alert ${a.level}">${esc(a.text)}</div>`).join('')
+}
+function coach12LatestMatchRows(){
+ const m=matches[0];if(!m)return {m:null,rows:[]};
+ const rows=records.filter(r=>String(r.match_id)===String(m.id)).map(r=>{
+  const p=players.find(x=>String(x.id)===String(r.player_id));
+  return {p,r}
+ }).filter(x=>x.p);
+ return {m,rows}
+}
+function runCoach12FullReport(){
+ const {m,rows}=coach12LatestMatchRows();
+ if(!m){showMessage('先に試合を登録してください。');return}
+ const top=rows.filter(x=>x.r.played).sort((a,b)=>(b.r.goals||0)-(a.r.goals||0)).slice(0,5);
+ const prompt=`古堅南FCの試合後レポート一式を作成してください。
+試合：${m.match_date||''} ${m.competition||''} 対 ${m.opponent||''}
+結果：古堅南FC ${m.goals_for||0}-${m.goals_against||0} 相手
+コーチメモ：${m.memo||'未入力'}
+主な出場選手：${top.map(x=>`${x.p.name} ${x.r.minutes||0}分 得点${x.r.goals||0} アシスト${x.r.assists||0}`).join('、')||'未入力'}
+
+次の6項目を作成してください。
+1. コーチ向け試合総評
+2. 攻撃の良かった点・改善点
+3. 守備の良かった点・改善点
+4. MVP候補と理由
+5. 次回練習メニュー3つ
+6. 保護者向けLINE文面（300文字以内）
+
+小学生年代に適した前向きで具体的な表現にしてください。`;
+ coachSendPrompt('match',prompt)
+}
+function buildCoach12ShareSummary(){
+ const {m,rows}=coach12LatestMatchRows();
+ if(!m)return '';
+ const scorers=rows.filter(x=>(x.r.goals||0)>0).map(x=>`${x.p.name}${x.r.goals>1?`(${x.r.goals})`:''}`);
+ const mvps=rows.filter(x=>x.r.mvp).map(x=>x.p.name);
+ return `${m.match_date||''} ${m.competition||'試合'}\n古堅南FC ${m.goals_for||0}-${m.goals_against||0} ${m.opponent||'対戦相手'}\n得点者：${scorers.join('、')||'なし'}\nMVP：${mvps.join('、')||'未選出'}\nメモ：${m.memo||'未入力'}`;
+}
+async function copyCoach12ShareSummary(){
+ const text=buildCoach12ShareSummary(),area=$('coach12ShareSummary');
+ if(area)area.value=text;
+ if(!text){showMessage('共有できる試合データがありません。');return}
+ try{await navigator.clipboard.writeText(text);showMessage('共有用要約をコピーしました。','ok')}
+ catch(e){showMessage('要約を表示しました。手動でコピーしてください。')}
+}
 function switchCoach11Mode(mode,btn){
  document.querySelectorAll('.coach11-panel').forEach(x=>x.classList.add('hidden'));
  const panel=$(`coach11-${mode}`);if(panel)panel.classList.remove('hidden');
@@ -134,6 +225,9 @@ function renderAiCoachDashboard(){
       <span>まず試合入力を確認し、次にAI試合診断、最後に保護者連絡文を作成する流れがおすすめです。</span>`
    : `<b>まだ試合が登録されていません。</b><span>「試合を入力」から始めてください。</span>`
  }
+ const share=$('coach12ShareSummary');if(share)share.value=buildCoach12ShareSummary();
+ loadCoach12Checklist();
+ renderCoach12Alerts()
 }
 function runCoachMatchDiagnosis(){
  const id=$('coachMatchSelect')?.value,m=matches.find(x=>String(x.id)===String(id));
