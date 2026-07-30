@@ -777,7 +777,7 @@ ${rank||'未登録'}
  coachSendPrompt('season',prompt)
 }
 
-function renderAll(){ video17Load();
+function renderAll(){ video171Bind(); video17Load();
  const v16m=$('video16MatchSelect');
  if(v16m){
   const cur=v16m.value;
@@ -1617,7 +1617,7 @@ function video16Write(rows){
  localStorage.setItem(video16OverlayKey(),JSON.stringify(rows.slice(-600)));
  renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()
 }
-function loadVideo16File(input){
+function loadVideo16File(input){ video171Bind();
  const file=input.files?.[0],video=$('video16Player');if(!file||!video)return;
  if(video.dataset.objectUrl)URL.revokeObjectURL(video.dataset.objectUrl);
  const url=URL.createObjectURL(file);video.src=url;video.dataset.objectUrl=url;
@@ -1979,7 +1979,10 @@ function video17ConsumeTracking(time,home,away,ball){
  }
  video17Data.timeline.push({
   time:stamp.time,home:home.length,away:away.length,ball:!!ball,owner,
-  homeCentroid:video17Centroid(home),awayCentroid:video17Centroid(away)
+  homeCentroid:video17Centroid(home),awayCentroid:video17Centroid(away),
+  homePoints:home.map(p=>({x:p.x,y:p.y})),
+  awayPoints:away.map(p=>({x:p.x,y:p.y})),
+  ballPoint:ball?{x:ball.x,y:ball.y}:null
  });
  video17Data.timeline=video17Data.timeline.slice(-2400);
  video17LastBall=ball||video17LastBall;video17LastOwner=owner;
@@ -2071,6 +2074,130 @@ function video17SummaryText(){
 古堅南FCチーム中心移動量:${video17Data.distanceHome.toFixed(1)}m
 相手チーム中心移動量:${video17Data.distanceAway.toFixed(1)}m`
 }
+
+let video171Bound=false;
+
+function video171Video(){
+ return $('video16Player')
+}
+function video171Format(sec){
+ sec=Math.max(0,Number(sec)||0);
+ const m=Math.floor(sec/60),s=Math.floor(sec%60),cs=Math.floor((sec-Math.floor(sec))*100);
+ return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`
+}
+function video171Bind(){
+ const video=video171Video();if(!video||video171Bound)return;
+ video171Bound=true;
+ video.addEventListener('loadedmetadata',video171UpdateTimeline,{passive:true});
+ video.addEventListener('timeupdate',()=>{
+  video171UpdateTimeline();
+  renderVideo171SyncedPitch();
+  renderVideo171CurrentEvents()
+ },{passive:true});
+ video.addEventListener('play',()=>video171SetState('再生中','running'));
+ video.addEventListener('pause',()=>video171SetState('停止中','paused'));
+ video.addEventListener('ended',()=>video171SetState('再生終了','done'));
+}
+function video171SetState(text,kind=''){
+ const e=$('video171SyncState');if(e){e.textContent=text;e.className=`video17-badge ${kind}`}
+}
+function video171Play(){
+ const v=video171Video();if(!v||!v.src){showMessage('先に動画を読み込んでください。');return}
+ video171Bind();v.play()
+}
+function video171Pause(){
+ const v=video171Video();if(v)v.pause()
+}
+function video171Step(direction){
+ const v=video171Video();if(!v||!v.src)return;
+ v.pause();v.currentTime=Math.max(0,Math.min(v.duration||0,v.currentTime+(direction*(1/25))));
+ video171UpdateTimeline();renderVideo171SyncedPitch();renderVideo171CurrentEvents()
+}
+function video171Jump(sec){
+ const v=video171Video();if(!v||!v.src)return;
+ v.currentTime=Math.max(0,Math.min(v.duration||0,v.currentTime+sec))
+}
+function video171SeekFromRange(value){
+ const v=video171Video();if(!v||!v.duration)return;
+ v.currentTime=Number(value)||0;
+ video171UpdateTimeline();renderVideo171SyncedPitch();renderVideo171CurrentEvents()
+}
+function video171UpdateTimeline(){
+ const v=video171Video(),range=$('video171TimelineRange');
+ if(!v)return;
+ if(range){range.max=Number.isFinite(v.duration)?v.duration:100;range.value=v.currentTime||0}
+ const cur=$('video171CurrentLabel'),dur=$('video171DurationLabel');
+ if(cur)cur.textContent=video171Format(v.currentTime||0);
+ if(dur)dur.textContent=video171Format(v.duration||0)
+}
+function video171PitchBase(){
+ return `<div class="v171-outline"></div><div class="v171-half"></div><div class="v171-circle"></div><div class="v171-spot"></div>
+ <div class="v171-box v171-top-box"></div><div class="v171-smallbox v171-top-small"></div><div class="v171-goal v171-top-goal"></div>
+ <div class="v171-box v171-bottom-box"></div><div class="v171-smallbox v171-bottom-small"></div><div class="v171-goal v171-bottom-goal"></div>`
+}
+function video171Rows(){
+ const current=video171Video()?.currentTime||0,windowSec=Number($('video171TrailSeconds')?.value||5);
+ const start=Math.max(0,current-windowSec),rows=[];
+ const overlay=typeof video16Read==='function'?video16Read():[];
+ overlay.forEach(x=>{if((x.time||0)>=start&&(x.time||0)<=current+.15)rows.push({...x,source:'overlay'})});
+ const tl=(video17Data?.timeline||[]);
+ tl.forEach(x=>{if((x.time||0)>=start&&(x.time||0)<=current+.15){
+  (x.homePoints||[]).forEach(p=>rows.push({type:'homeAuto',x:p.x,y:p.y,time:x.time}));
+  (x.awayPoints||[]).forEach(p=>rows.push({type:'awayAuto',x:p.x,y:p.y,time:x.time}));
+  if(x.ballPoint)rows.push({type:'ballAuto',x:x.ballPoint.x,y:x.ballPoint.y,time:x.time})
+ }});
+ return rows.sort((a,b)=>(a.time||0)-(b.time||0))
+}
+function renderVideo171SyncedPitch(){
+ const pitch=$('video171Pitch');if(!pitch)return;
+ const rows=video171Rows(),html=[video171PitchBase()];
+ const showBall=$('video171ShowBallTrail')?.checked,showPlayer=$('video171ShowPlayerTrail')?.checked,showPass=$('video171ShowPasses')?.checked,showShot=$('video171ShowShots')?.checked;
+
+ const ballRows=rows.filter(x=>['ball','ballAuto'].includes(x.type));
+ if(showBall&&ballRows.length>1){
+  html.push(`<svg class="v171-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline class="v171-ball-trail" points="${ballRows.map(x=>`${x.x},${x.y}`).join(' ')}"/></svg>`)
+ }
+ if(showPlayer){
+  const playerRows=rows.filter(x=>['player','homeAuto','awayAuto'].includes(x.type));
+  playerRows.forEach((x,i)=>{
+   const cls=x.type==='awayAuto'?'away':'home';
+   html.push(`<div class="v171-player ${cls}" style="left:${x.x}%;top:${x.y}%;opacity:${Math.max(.25,(i+1)/playerRows.length)}"><span></span></div>`)
+  })
+ }
+ if(showPass){
+  rows.filter(x=>x.type==='pass').forEach(x=>html.push(video171Line(x,'pass')))
+ }
+ if(showShot){
+  rows.filter(x=>x.type==='shot').forEach(x=>html.push(video171Line(x,'shot')))
+ }
+ const latestBall=ballRows[ballRows.length-1];
+ if(latestBall)html.push(`<div class="v171-ball" style="left:${latestBall.x}%;top:${latestBall.y}%">⚽</div>`);
+ pitch.innerHTML=html.join('')
+}
+function video171Line(x,kind){
+ const dx=x.x2-x.x1,dy=x.y2-x.y1,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
+ return `<div class="v171-line ${kind}" style="left:${x.x1}%;top:${x.y1}%;width:${len}%;transform:rotate(${angle}deg)"><i></i></div>`
+}
+function renderVideo171CurrentEvents(){
+ const box=$('video171CurrentEvents');if(!box)return;
+ const current=video171Video()?.currentTime||0,rows=(typeof video16Read==='function'?video16Read():[]).filter(x=>Math.abs((x.time||0)-current)<=1.0);
+ if(!rows.length){box.innerHTML='<p class="muted">この時間帯のイベントはありません。</p>';return}
+ box.innerHTML=rows.map(x=>{
+  const p=players.find(a=>String(a.id)===String(x.player_id));
+  const labels={ball:'ボール',player:'選手位置',pass:'パス',shot:'シュート',heat:'ヒート位置'};
+  return `<div class="video171-event"><b>${video171Format(x.time)}</b><span>${labels[x.type]||x.type}</span><em>${esc(p?.name||'チーム')}</em><small>${esc(x.note||'')}</small></div>`
+ }).join('')
+}
+function video171CreateEventFromCurrent(){
+ const v=video171Video();if(!v||!v.src){showMessage('先に動画を読み込んでください。');return}
+ const t=$('video16CurrentTime');if(t)t.textContent=formatVideo16Time(v.currentTime);
+ const note=$('video16OverlayNote');if(note&&!note.value)note.value=`${video171Format(v.currentTime)} の場面`;
+ showMessage('現在時間を分析入力へ反映しました。コート上をクリックして記録してください。','ok')
+}
+function video171FitToCurrent(){
+ video171UpdateTimeline();renderVideo171SyncedPitch();renderVideo171CurrentEvents()
+}
+
 function runVideo17VisionReport(){
  if(!video17Data.frames){showMessage('先にAI Vision解析を実行してください。');return}
  coachSendPrompt('match',`古堅南FCのAI Vision解析データです。\n${video17SummaryText()}\n\n攻撃、守備、保持、幅、深さ、切り替え、改善優先順位、次回練習を整理してください。数値は推定値として扱ってください。`)
