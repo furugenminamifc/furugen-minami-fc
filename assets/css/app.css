@@ -21,3 +21,9 @@ main{max-width:1180px;margin:auto;padding:14px}.page{display:none}.page.show{dis
 .report-hero{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#eff6ff,#f0fdf4)}
 .report-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr);gap:12px}.report-output{min-height:360px;line-height:1.7}.saved-report,.video-note{border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:9px;background:#f8fafc}.saved-report details{margin:8px 0}.report-text{white-space:pre-wrap;line-height:1.65;padding:10px;background:#fff;border-radius:9px;margin-top:7px}.video-note{display:flex;justify-content:space-between;gap:10px}.report-hero h3{font-size:24px;margin:8px 0}
 @media(max-width:760px){.report-layout{grid-template-columns:1fr}.report-hero{align-items:flex-start;flex-direction:column}.report-output{min-height:280px}}
+
+
+/* Ver.7.0 AI戦略センター */
+.v7-hero{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#ecfeff,#eff6ff,#f5f3ff)}
+.v7-hero h3{font-size:24px;margin:8px 0}.v7-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0}.v7-tab{background:#e2e8f0;color:#334155}.v7-tab.active{background:var(--primary);color:#fff}.v7-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,.9fr);gap:12px}.v7-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.v7-player-controls{margin:12px 0}.v7-output{min-height:430px;line-height:1.7}.v7-player-controls select{min-width:105px}
+@media(max-width:850px){.v7-tabs{grid-template-columns:1fr 1fr}.v7-layout{grid-template-columns:1fr}.v7-form-grid{grid-template-columns:1fr}.v7-hero{align-items:flex-start;flex-direction:column}.v7-output{min-height:320px}}

@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="古堅南FC AI Coach Server", version="6.0.0")
+app = FastAPI(title="古堅南FC AI Coach Server", version="7.0.0")
 
 origins = [x.strip() for x in os.getenv("ALLOWED_ORIGINS", "*").split(",") if x.strip()]
 app.add_middleware(
@@ -48,8 +48,8 @@ MODE_INSTRUCTIONS = {
 async def health() -> dict[str, Any]:
     return {
         "ok": True,
-        "service": "古堅南FC AIコーチサーバー Ver.6",
-        "version": "6.0.0",
+        "service": "古堅南FC AIコーチサーバー Ver.7",
+        "version": "7.0.0",
         "model": os.getenv("OPENAI_MODEL", "gpt-5-mini"),
         "api_key_configured": bool(os.getenv("OPENAI_API_KEY")),
         "chat_endpoint": "/v1/ai/chat",
