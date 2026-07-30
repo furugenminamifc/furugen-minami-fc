@@ -2213,6 +2213,60 @@ function video171FitToCurrent(){
  video171UpdateTimeline();renderVideo171SyncedPitch();renderVideo171CurrentEvents()
 }
 
+
+let v18Timer=null,v18Running=false,v18Paused=false,v18Prev=null,v18LastBall=null;
+let v18={frames:0,ballFrames:0,home:0,away:0,passes:0,shots:0,events:[]};
+
+function v18rgb(hex){const v=String(hex).replace('#','');return {r:parseInt(v.slice(0,2),16),g:parseInt(v.slice(2,4),16),b:parseInt(v.slice(4,6),16)}}
+function v18cd(r,g,b,t){return Math.hypot(r-t.r,g-t.g,b-t.b)}
+function v18status(t,c=''){const e=$('video18Status');if(e){e.textContent=t;e.className=`video18-status ${c}`}}
+function startVideo18(){
+ const v=$('video16Player');if(!v||!v.src){showMessage('先に動画を読み込んでください。');return}
+ stopVideo18(false);v18Running=true;v18Paused=false;v18status('解析中','running');v18Analyze();v18Timer=setInterval(v18Analyze,400)
+}
+function pauseVideo18(){v18Paused=true;v18status('一時停止','paused')}
+function resumeVideo18(){v18Paused=false;v18status('解析中','running')}
+function stopVideo18(clear=true){if(v18Timer)clearInterval(v18Timer);v18Timer=null;v18Running=false;v18Paused=false;v18status('解析終了','done');if(clear)v18Prev=null;v18Render()}
+function v18Analyze(){
+ if(!v18Running||v18Paused)return;
+ const video=$('video16Player'),c=$('video18Canvas');if(!video||!c||video.readyState<2)return;
+ c.width=320;c.height=Math.max(180,Math.round(320*(video.videoHeight||180)/(video.videoWidth||320)));
+ const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(video,0,0,c.width,c.height);
+ let im;try{im=x.getImageData(0,0,c.width,c.height)}catch(e){return}
+ const d=im.data,tol=Number($('video18Tolerance')?.value||52),h=v18rgb($('video18HomeColor').value),a=v18rgb($('video18AwayColor').value),b=v18rgb($('video18BallColor').value);
+ let hp=[],ap=[],bp=[];
+ for(let yy=0;yy<c.height;yy+=4)for(let xx=0;xx<c.width;xx+=4){
+  const i=(yy*c.width+xx)*4,r=d[i],g=d[i+1],bb=d[i+2];
+  if(v18cd(r,g,bb,h)<tol)hp.push([xx,yy]);
+  if(v18cd(r,g,bb,a)<tol)ap.push([xx,yy]);
+  if(v18cd(r,g,bb,b)<Math.max(18,tol*.5))bp.push([xx,yy]);
+ }
+ const home=v18Cluster(hp,c),away=v18Cluster(ap,c),ball=v18Ball(bp,c);
+ v18.frames++;v18.home+=home.length;v18.away+=away.length;v18.ballFrames+=ball?1:0;
+ if(v18LastBall&&ball){const m=Math.hypot(ball.x-v18LastBall.x,ball.y-v18LastBall.y);if(m>10&&m<45){v18.passes++;v18Event(video.currentTime,'推定パス')}if(m>8&&(ball.y<15||ball.y>85)){v18.shots++;v18Event(video.currentTime,'推定シュート')}}
+ v18LastBall=ball||v18LastBall;v18Draw(x,home,away,ball);v18Render()
+}
+function v18Cluster(pts,c){
+ const map=new Map(),s=28;pts.forEach(([x,y])=>{const k=`${Math.floor(x/s)}_${Math.floor(y/s)}`;if(!map.has(k))map.set(k,[]);map.get(k).push([x,y])});
+ return [...map.values()].filter(a=>a.length>=4).map(a=>({x:a.reduce((q,p)=>q+p[0],0)/a.length/c.width*100,y:a.reduce((q,p)=>q+p[1],0)/a.length/c.height*100,score:a.length})).sort((a,b)=>b.score-a.score).slice(0,8)
+}
+function v18Ball(pts,c){if(!pts.length)return null;const q=pts.slice(0,500);return {x:q.reduce((s,p)=>s+p[0],0)/q.length/c.width*100,y:q.reduce((s,p)=>s+p[1],0)/q.length/c.height*100}}
+function v18Draw(x,h,a,b){
+ x.save();x.lineWidth=2;
+ h.forEach((p,i)=>{x.strokeStyle='#2f80ed';x.strokeRect(p.x/100*x.canvas.width-10,p.y/100*x.canvas.height-14,20,28)});
+ a.forEach((p,i)=>{x.strokeStyle='#e53935';x.strokeRect(p.x/100*x.canvas.width-10,p.y/100*x.canvas.height-14,20,28)});
+ if(b){x.strokeStyle='#fff';x.beginPath();x.arc(b.x/100*x.canvas.width,b.y/100*x.canvas.height,7,0,Math.PI*2);x.stroke()}x.restore()
+}
+function v18Event(t,n){const last=v18.events[v18.events.length-1];if(last&&last.name===n&&Math.abs(last.time-t)<1)return;v18.events.push({time:t,name:n});v18.events=v18.events.slice(-200)}
+function v18Render(){
+ const set=(id,v)=>{const e=$(id);if(e)e.textContent=v};
+ set('v18Frames',v18.frames);set('v18Home',v18.frames?(v18.home/v18.frames).toFixed(1):0);set('v18Away',v18.frames?(v18.away/v18.frames).toFixed(1):0);set('v18BallRate',`${v18.frames?Math.round(v18.ballFrames/v18.frames*100):0}%`);set('v18Passes',v18.passes);set('v18Shots',v18.shots);
+ const e=$('video18Events');if(e)e.innerHTML=v18.events.length?v18.events.slice().reverse().map(r=>`<div><b>${video171Format(r.time)}</b><span>${r.name}</span></div>`).join(''):'<p class="muted">イベントはありません。</p>'
+}
+function runVideo18Report(){coachSendPrompt('match',`Ver.18 AI Vision Analyzer推定結果です。解析フレーム${v18.frames}、ボール検出率${v18.frames?Math.round(v18.ballFrames/v18.frames*100):0}%、推定パス${v18.passes}、推定シュート${v18.shots}。試合総評、攻撃、守備、改善優先順位3つ、次回練習を整理してください。推定値であることを明記してください。`)}
+function exportVideo18Json(){const b=new Blob([JSON.stringify(v18,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='furugen_ver18.json';a.click();URL.revokeObjectURL(a.href)}
+function resetVideo18(){if(!confirm('解析データを初期化しますか？'))return;stopVideo18();v18={frames:0,ballFrames:0,home:0,away:0,passes:0,shots:0,events:[]};v18LastBall=null;v18Render()}
+
 function runVideo17VisionReport(){
  if(!video17Data.frames){showMessage('先にAI Vision解析を実行してください。');return}
  coachSendPrompt('match',`古堅南FCのAI Vision解析データです。\n${video17SummaryText()}\n\n攻撃、守備、保持、幅、深さ、切り替え、改善優先順位、次回練習を整理してください。数値は推定値として扱ってください。`)

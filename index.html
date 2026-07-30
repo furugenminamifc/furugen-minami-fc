@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC AI Coach Ver.17.2.1</title>
+<title>古堅南FC AI Coach Ver.18.0</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=17.2.1">
+<link rel="stylesheet" href="./assets/css/app.css?v=18.0.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.17.2.1</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC AI Coach Ver.18.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('coach')">🧠 AI Coach</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
@@ -173,7 +173,7 @@
 <section id="video" class="page">
   <div class="video16x-hero">
     <div>
-      <span>古堅南FC AI Coach Ver.17.2.1</span>
+      <span>古堅南FC AI Coach Ver.18.0</span>
       <h2>🎥 動画分析 × 縦向きコート</h2>
       <p>動画を再生しながら、ボール位置・選手位置・パス・シュートを記録し、ヒートマップとして重ねて表示します。</p>
     </div>
@@ -332,7 +332,7 @@
   <div class="video17-engine">
     <div class="video17-head">
       <div>
-        <span>古堅南FC AI Coach Ver.17.2.1</span>
+        <span>古堅南FC AI Coach Ver.18.0</span>
         <h3>🧠 AI Vision Engine</h3>
         <p>追跡候補を蓄積し、移動・保持・フォーメーション・ヒートマップを自動集計します。</p>
       </div>
@@ -403,7 +403,7 @@
     <div class="video171-sync">
       <div class="video17-head">
         <div>
-          <span>Ver.17.2.1</span>
+          <span>Ver.18.0</span>
           <h3>🎬 動画・コート・タイムライン連動</h3>
           <p>動画時間に合わせて、ボール・選手・パス・シュートの表示を自動更新します。</p>
         </div>
@@ -462,6 +462,53 @@
       </div>
     </div>
 
+
+    <div class="video18-analyzer">
+      <div class="video18-head">
+        <div><span>Ver.18.0 β</span><h3>🧠 AI Vision Analyzer</h3>
+        <p>色・動き・位置関係から、選手候補、ボール候補、保持、パス、シュートを推定します。</p></div>
+        <div id="video18Status" class="video18-status">待機中</div>
+      </div>
+      <div class="video18-grid">
+        <section class="video18-panel">
+          <h4>解析設定</h4>
+          <div class="video18-formgrid">
+            <label>古堅南FC色<input id="video18HomeColor" type="color" value="#2f80ed"></label>
+            <label>相手色<input id="video18AwayColor" type="color" value="#e53935"></label>
+            <label>ボール色<input id="video18BallColor" type="color" value="#ffffff"></label>
+            <label>色許容範囲<input id="video18Tolerance" type="range" min="15" max="120" value="52"></label>
+          </div>
+          <div class="video18-actions">
+            <button onclick="startVideo18()">▶ 解析開始</button>
+            <button class="light" onclick="pauseVideo18()">⏸ 一時停止</button>
+            <button class="light" onclick="resumeVideo18()">⏯ 再開</button>
+            <button class="danger" onclick="stopVideo18()">■ 終了</button>
+          </div>
+        </section>
+        <section class="video18-panel">
+          <h4>解析結果</h4>
+          <div class="video18-kpis">
+            <div><span>解析フレーム</span><b id="v18Frames">0</b></div>
+            <div><span>古堅南FC候補</span><b id="v18Home">0</b></div>
+            <div><span>相手候補</span><b id="v18Away">0</b></div>
+            <div><span>ボール検出率</span><b id="v18BallRate">0%</b></div>
+            <div><span>推定パス</span><b id="v18Passes">0</b></div>
+            <div><span>推定シュート</span><b id="v18Shots">0</b></div>
+          </div>
+        </section>
+      </div>
+      <div class="video18-grid">
+        <section class="video18-panel"><h4>現在フレーム検出</h4><canvas id="video18Canvas" class="video18-canvas"></canvas></section>
+        <section class="video18-panel"><h4>自動イベント</h4><div id="video18Events" class="video18-events"></div></section>
+      </div>
+      <div class="video18-actions">
+        <button onclick="runVideo18Report()">AI試合分析</button>
+        <button class="light" onclick="exportVideo18Json()">JSON出力</button>
+        <button class="light" onclick="resetVideo18()">解析データ初期化</button>
+      </div>
+      <div class="coach-safety"><b>重要</b><span>自動判定は推定です。映像の目視確認を優先してください。</span></div>
+    </div>
+
     <div class="video17-report-actions">
       <button onclick="runVideo17VisionReport()">AI Vision試合レポート</button>
       <button class="light" onclick="runVideo17FormationReport()">フォーメーション診断</button>
@@ -493,8 +540,8 @@
 <section id="coach" class="page">
   <div class="coach11-hero">
     <div>
-      <span class="coach-version">古堅南FC AI Coach Ver.17.2.1</span>
-      <h2>SVGコートで正確なラインと動画同期を実現</h2>
+      <span class="coach-version">古堅南FC AI Coach Ver.18.0</span>
+      <h2>AI Vision Analyzerで映像を数値化</h2>
       <p>迷わず、5分で、次の指導まで。必要な機能だけを順番に使えます。</p>
     </div>
     <div class="coach11-hero-actions">
@@ -873,5 +920,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=17.2.1"></script>
+<script src="./assets/js/app.js?v=18.0.0"></script>
 </body></html>
