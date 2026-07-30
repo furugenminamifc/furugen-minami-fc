@@ -777,7 +777,7 @@ ${rank||'未登録'}
  coachSendPrompt('season',prompt)
 }
 
-function renderAll(){
+function renderAll(){ video17Load();
  const v16m=$('video16MatchSelect');
  if(v16m){
   const cur=v16m.value;
@@ -1702,7 +1702,7 @@ function clearVideo16MatchOverlay(){
  localStorage.removeItem(video16OverlayKey());video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()
 }
 function resetVideo16Overlay(){video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()}
-function loadVideo16Overlay(){video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()}
+function loadVideo16Overlay(){ video17Load();video16PendingStart=null;renderVideo16OverlayPitch();renderVideo16OverlaySummary();renderVideo16OverlayTimeline()}
 function renderVideo16OverlaySummary(){
  const box=$('video16OverlaySummary');if(!box)return;const rows=video16Read();
  const c=t=>rows.filter(x=>x.type===t).length;
@@ -1826,7 +1826,8 @@ function runVideo162Frame(){
  video162DrawCanvas(ctx,homePos,awayPos,ballPos);
  video162SyncToPitch(video.currentTime,homePos,awayPos,ballPos);
  const confidence=Math.round(Math.min(100,(homePos.length+awayPos.length+(ballPos?1:0))*7));
- video162UpdateMetrics(homePos.length,awayPos.length,ballPos?1:0,confidence)
+ video162UpdateMetrics(homePos.length,awayPos.length,ballPos?1:0,confidence);
+ video17ConsumeTracking(video.currentTime,homePos,awayPos,ballPos)
 }
 function video162Cluster(points,canvas){
  if(!points.length)return [];
@@ -1885,6 +1886,205 @@ function handleVideo16PitchClick(ev){
  if(video162OriginalPitchClick)return video162OriginalPitchClick(ev)
 }
 document.addEventListener('input',e=>{if(e.target?.id==='video162Tolerance')video162UpdateTolerance()});
+
+
+let video17VisionRunning=false;
+let video17VisionPaused=false;
+let video17LastBall=null;
+let video17LastOwner='none';
+let video17Data={frames:0,ballFrames:0,homePossession:0,awayPossession:0,neutralPossession:0,passes:0,shots:0,homePoints:[],awayPoints:[],ballPoints:[],timeline:[],distanceHome:0,distanceAway:0,formation:'未判定'};
+
+function video17Key(){
+ const id=$('video16MatchSelect')?.value||'general';
+ return `furugenVideo17_${id}`
+}
+function video17Save(){
+ localStorage.setItem(video17Key(),JSON.stringify(video17Data))
+}
+function video17Load(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(video17Key())||'null');
+  if(saved)video17Data=Object.assign(video17Data,saved)
+ }catch(e){}
+ renderVideo17All()
+}
+function startVideo17Vision(){
+ const video=$('video16Player');
+ if(!video||!video.src){showMessage('先に動画を読み込んでください。');return}
+ video17VisionRunning=true;video17VisionPaused=false;
+ video17SetState('解析中','running');
+ if(typeof startVideo162Tracking==='function'&&!video162Running)startVideo162Tracking()
+}
+function pauseVideo17Vision(){
+ video17VisionPaused=true;
+ if(typeof pauseVideo162Tracking==='function')pauseVideo162Tracking();
+ video17SetState('一時停止','paused')
+}
+function finishVideo17Vision(){
+ video17VisionRunning=false;video17VisionPaused=false;
+ if(typeof stopVideo162Tracking==='function')stopVideo162Tracking(false);
+ video17SetState('解析完了','done');
+ video17InferFormation();video17Save();renderVideo17All()
+}
+function resetVideo17Vision(){
+ if(!confirm('Ver.17の解析データをリセットしますか？'))return;
+ video17Data={frames:0,ballFrames:0,homePossession:0,awayPossession:0,neutralPossession:0,passes:0,shots:0,homePoints:[],awayPoints:[],ballPoints:[],timeline:[],distanceHome:0,distanceAway:0,formation:'未判定'};
+ localStorage.removeItem(video17Key());video17LastBall=null;video17LastOwner='none';renderVideo17All()
+}
+function video17SetState(text,kind=''){
+ const e=$('video17EngineState');if(e){e.textContent=text;e.className=`video17-badge ${kind}`}
+}
+function video17Distance(a,b){
+ if(!a||!b)return Infinity;
+ const dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy)
+}
+function video17Meters(a,b){
+ const w=Number($('video17PitchWidth')?.value||50),l=Number($('video17PitchLength')?.value||68);
+ const dx=(a.x-b.x)/100*w,dy=(a.y-b.y)/100*l;return Math.sqrt(dx*dx+dy*dy)
+}
+function video17Nearest(point,list){
+ if(!point||!list?.length)return {d:Infinity,p:null};
+ return list.reduce((best,p)=>{const d=video17Distance(point,p);return d<best.d?{d,p}:best},{d:Infinity,p:null})
+}
+function video17ConsumeTracking(time,home,away,ball){
+ if(!video17VisionRunning||video17VisionPaused)return;
+ video17Data.frames++;
+ const stamp={time:Number(time)||0};
+ home.forEach(p=>video17Data.homePoints.push({x:p.x,y:p.y,time:stamp.time}));
+ away.forEach(p=>video17Data.awayPoints.push({x:p.x,y:p.y,time:stamp.time}));
+ if(ball){video17Data.ballFrames++;video17Data.ballPoints.push({x:ball.x,y:ball.y,time:stamp.time})}
+
+ const hn=video17Nearest(ball,home),an=video17Nearest(ball,away);
+ let owner='neutral';
+ if(ball&&hn.d<10&&hn.d<an.d)owner='home';
+ else if(ball&&an.d<10&&an.d<hn.d)owner='away';
+ if(owner==='home')video17Data.homePossession++;
+ else if(owner==='away')video17Data.awayPossession++;
+ else video17Data.neutralPossession++;
+
+ if(video17LastBall&&ball){
+  const move=video17Distance(video17LastBall,ball);
+  if(move>12&&move<55)video17Data.passes++;
+  const dir=$('video17AttackDirection')?.value||'up';
+  const nearGoal=dir==='up'?ball.y<18:ball.y>82;
+  if(move>8&&nearGoal)video17Data.shots++;
+ }
+ if(home.length&&video17Data.timeline.length){
+  const prev=video17Data.timeline[video17Data.timeline.length-1];
+  if(prev.homeCentroid)video17Data.distanceHome+=video17Meters(prev.homeCentroid,video17Centroid(home))
+ }
+ if(away.length&&video17Data.timeline.length){
+  const prev=video17Data.timeline[video17Data.timeline.length-1];
+  if(prev.awayCentroid)video17Data.distanceAway+=video17Meters(prev.awayCentroid,video17Centroid(away))
+ }
+ video17Data.timeline.push({
+  time:stamp.time,home:home.length,away:away.length,ball:!!ball,owner,
+  homeCentroid:video17Centroid(home),awayCentroid:video17Centroid(away)
+ });
+ video17Data.timeline=video17Data.timeline.slice(-2400);
+ video17LastBall=ball||video17LastBall;video17LastOwner=owner;
+ if(video17Data.frames%10===0){video17Save();renderVideo17All()}
+}
+function video17Centroid(points){
+ if(!points?.length)return null;
+ return {x:points.reduce((s,p)=>s+p.x,0)/points.length,y:points.reduce((s,p)=>s+p.y,0)/points.length}
+}
+function video17InferFormation(){
+ const pts=video17Data.homePoints.slice(-500);
+ if(pts.length<20){video17Data.formation='未判定';return}
+ const zones=[0,0,0,0];
+ pts.forEach(p=>{if(p.y>78)zones[0]++;else if(p.y>58)zones[1]++;else if(p.y>32)zones[2]++;else zones[3]++});
+ const total=zones.reduce((a,b)=>a+b,0)||1;
+ const est=zones.map(x=>Math.max(0,Math.round(x/total*8)));
+ const gp=Math.max(1,est[0]);let rest=8-gp;
+ const df=Math.max(2,Math.min(3,est[1]||3));rest-=df;
+ const mf=Math.max(2,Math.min(3,est[2]||2));rest-=mf;
+ const fw=Math.max(1,rest);
+ video17Data.formation=`${df}-${mf}-${fw}`
+}
+function video17Percent(n,total){return total?Math.round(n/total*100):0}
+function renderVideo17All(){
+ const set=(id,v)=>{const e=$(id);if(e)e.textContent=v};
+ const poss=video17Data.homePossession+video17Data.awayPossession+video17Data.neutralPossession;
+ set('video17Frames',video17Data.frames);
+ set('video17BallRate',`${video17Percent(video17Data.ballFrames,video17Data.frames)}%`);
+ set('video17HomePossession',`${video17Percent(video17Data.homePossession,poss)}%`);
+ set('video17AwayPossession',`${video17Percent(video17Data.awayPossession,poss)}%`);
+ set('video17Passes',video17Data.passes);
+ set('video17Shots',video17Data.shots);
+ renderVideo17TacticalSummary();renderVideo17Heatmap();renderVideo17Timeline()
+}
+function renderVideo17TacticalSummary(){
+ video17InferFormation();
+ const box=$('video17TacticalSummary');if(!box)return;
+ const hp=video17Data.homePoints,ap=video17Data.awayPoints,bp=video17Data.ballPoints;
+ const hc=video17Centroid(hp.slice(-300)),ac=video17Centroid(ap.slice(-300)),bc=video17Centroid(bp.slice(-300));
+ const width=hp.length?Math.max(...hp.slice(-300).map(p=>p.x))-Math.min(...hp.slice(-300).map(p=>p.x)):0;
+ const depth=hp.length?Math.max(...hp.slice(-300).map(p=>p.y))-Math.min(...hp.slice(-300).map(p=>p.y)):0;
+ const comments=[];
+ if(width<35)comments.push('横幅が狭めです。サイドの立ち位置を確認してください。');
+ if(depth>65)comments.push('前後の間隔が広めです。ライン間の距離を確認してください。');
+ if(bc&&bc.x>65)comments.push('ボールは右サイドに偏る傾向があります。');
+ if(bc&&bc.x<35)comments.push('ボールは左サイドに偏る傾向があります。');
+ if(!comments.length)comments.push('大きな偏りはまだ検出されていません。');
+ box.innerHTML=`
+  <div><span>推定フォーメーション</span><b>${esc(video17Data.formation)}</b></div>
+  <div><span>チーム中心</span><b>${hc?`${hc.x.toFixed(0)}, ${hc.y.toFixed(0)}`:'未取得'}</b></div>
+  <div><span>横幅</span><b>${width.toFixed(0)}%</b></div>
+  <div><span>前後幅</span><b>${depth.toFixed(0)}%</b></div>
+  <p>${comments.map(esc).join('<br>')}</p>`
+}
+function renderVideo17Heatmap(){
+ const canvas=$('video17HeatCanvas');if(!canvas)return;
+ const type=$('video17HeatTeam')?.value||'home';
+ const points=type==='home'?video17Data.homePoints:type==='away'?video17Data.awayPoints:video17Data.ballPoints;
+ canvas.width=360;canvas.height=540;
+ const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.fillStyle='#168437';ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.strokeRect(10,10,340,520);
+ ctx.beginPath();ctx.moveTo(10,270);ctx.lineTo(350,270);ctx.stroke();
+ ctx.beginPath();ctx.arc(180,270,45,0,Math.PI*2);ctx.stroke();
+ points.slice(-1200).forEach(p=>{
+  const x=p.x/100*canvas.width,y=p.y/100*canvas.height;
+  const grd=ctx.createRadialGradient(x,y,0,x,y,34);
+  grd.addColorStop(0,'rgba(239,68,68,.22)');grd.addColorStop(.45,'rgba(245,158,11,.16)');grd.addColorStop(1,'rgba(250,204,21,0)');
+  ctx.fillStyle=grd;ctx.beginPath();ctx.arc(x,y,34,0,Math.PI*2);ctx.fill()
+ })
+}
+function renderVideo17Timeline(){
+ const box=$('video17Timeline');if(!box)return;
+ const rows=video17Data.timeline.slice(-120);
+ if(!rows.length){box.innerHTML='<p class="muted">解析データはありません。</p>';return}
+ const buckets=new Map();
+ rows.forEach(r=>{const k=Math.floor((r.time||0)/60);if(!buckets.has(k))buckets.set(k,{frames:0,home:0,away:0,ball:0});const b=buckets.get(k);b.frames++;b.home+=r.home;b.away+=r.away;b.ball+=r.ball?1:0});
+ box.innerHTML=[...buckets.entries()].map(([m,b])=>`<div><b>${m}分台</b><span>自:${(b.home/b.frames).toFixed(1)}人</span><span>相:${(b.away/b.frames).toFixed(1)}人</span><span>球:${video17Percent(b.ball,b.frames)}%</span></div>`).join('')
+}
+function video17SummaryText(){
+ const poss=video17Data.homePossession+video17Data.awayPossession+video17Data.neutralPossession;
+ return `解析フレーム:${video17Data.frames}
+ボール検出率:${video17Percent(video17Data.ballFrames,video17Data.frames)}%
+古堅南FC保持:${video17Percent(video17Data.homePossession,poss)}%
+相手保持:${video17Percent(video17Data.awayPossession,poss)}%
+推定パス:${video17Data.passes}
+推定シュート:${video17Data.shots}
+推定フォーメーション:${video17Data.formation}
+古堅南FCチーム中心移動量:${video17Data.distanceHome.toFixed(1)}m
+相手チーム中心移動量:${video17Data.distanceAway.toFixed(1)}m`
+}
+function runVideo17VisionReport(){
+ if(!video17Data.frames){showMessage('先にAI Vision解析を実行してください。');return}
+ coachSendPrompt('match',`古堅南FCのAI Vision解析データです。\n${video17SummaryText()}\n\n攻撃、守備、保持、幅、深さ、切り替え、改善優先順位、次回練習を整理してください。数値は推定値として扱ってください。`)
+}
+function runVideo17FormationReport(){
+ coachSendPrompt('lineup',`AI Visionの推定データです。\n${video17SummaryText()}\n\n現在のフォーメーション傾向、攻撃時、守備時、選手間距離、改善案、確認事項を少年サッカー向けに整理してください。`)
+}
+function runVideo17LoadReport(){
+ coachSendPrompt('player',`AI Visionの運動量推定データです。\n${video17SummaryText()}\n\nチーム全体の負荷傾向、休ませる判断で確認すべきこと、安全面、次回練習強度を整理してください。個人の医療判断はしないでください。`)
+}
+function exportVideo17VisionJson(){
+ const blob=new Blob([JSON.stringify(video17Data,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='furugen_ver17_vision.json';a.click();URL.revokeObjectURL(a.href)
+}
 
 function renderVideoNotes(){const box=$('videoNotesList');if(!box)return;box.innerHTML=videoNotes.map(n=>{const m=matches.find(x=>x.id===n.match_id),p=players.find(x=>x.id===n.player_id);return `<div class="video-note"><div><b>${esc(n.timestamp||'時間未設定')} ${esc(n.event_type||'')}</b><span class="pill">${esc(p?.name||'チーム全体')}</span><div>${esc(n.note||'')}</div><div class="muted">${esc(m?`${m.match_date||''} 対${m.opponent||''}`:'試合')}</div></div>${isStaff()?`<button class="danger" onclick="deleteVideoNote('${n.id}')">削除</button>`:''}</div>`}).join('')||'<p class="muted">動画メモはありません。</p>'}
 async function deleteVideoNote(id){if(!confirm('この動画メモを削除しますか？'))return;const r=await sb.from('video_notes').delete().eq('id',id);if(r.error)showMessage(r.error.message);else await loadAll()}
