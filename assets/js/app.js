@@ -466,18 +466,7 @@ function coach15BoardPlayers(){
 function renderCoach15Board(){
  const pitch=$('coach15Pitch');if(!pitch)return;
  const formation=$('coach15Formation')?.value||'3-2-2',slots=coach15FormationSlots(formation),selected=coach15BoardPlayers();
- const markings=`<div class="pitch-outline"></div>
-  <div class="pitch-halfway"></div>
-  <div class="pitch-center-circle"></div>
-  <div class="pitch-center-spot"></div>
-  <div class="pitch-box pitch-box-top"></div>
-  <div class="pitch-goalbox pitch-goalbox-top"></div>
-  <div class="pitch-goal pitch-goal-top"></div>
-  <div class="pitch-arc pitch-arc-top"></div>
-  <div class="pitch-box pitch-box-bottom"></div>
-  <div class="pitch-goalbox pitch-goalbox-bottom"></div>
-  <div class="pitch-goal pitch-goal-bottom"></div>
-  <div class="pitch-arc pitch-arc-bottom"></div>`;
+ const markings=furugenPitchSvg();
  pitch.innerHTML=markings+slots.map((s,i)=>`<div class="coach15-player" style="left:${s[1]}%;top:${s[2]}%">
    <span>${s[0]}</span><b>${esc(selected[i]?.name||'未選択')}</b>
   </div>`).join('')
@@ -1629,11 +1618,36 @@ function formatVideo16Time(sec){
 function captureVideo16Time(){
  const video=$('video16Player'),e=$('video16CurrentTime');if(e)e.textContent=formatVideo16Time(video?.currentTime||0)
 }
-function video16PitchMarkings(){
- return `<div class="v16-outline"></div><div class="v16-half"></div><div class="v16-circle"></div><div class="v16-spot"></div>
- <div class="v16-box v16-top-box"></div><div class="v16-smallbox v16-top-small"></div><div class="v16-goal v16-top-goal"></div>
- <div class="v16-box v16-bottom-box"></div><div class="v16-smallbox v16-bottom-small"></div><div class="v16-goal v16-bottom-goal"></div>`
+
+function furugenPitchSvg(){
+ return `<svg class="furugen-pitch-svg" viewBox="0 0 68 105" preserveAspectRatio="none" aria-hidden="true">
+  <g fill="none" stroke="rgba(255,255,255,.96)" stroke-width=".45" vector-effect="non-scaling-stroke">
+   <rect x="1.5" y="1.5" width="65" height="102" rx=".15"></rect>
+   <line x1="1.5" y1="52.5" x2="66.5" y2="52.5"></line>
+   <circle cx="34" cy="52.5" r="9.15"></circle>
+   <circle cx="34" cy="52.5" r=".35" fill="rgba(255,255,255,.96)" stroke="none"></circle>
+
+   <rect x="13.84" y="1.5" width="40.32" height="16.5"></rect>
+   <rect x="24.84" y="1.5" width="18.32" height="5.5"></rect>
+   <rect x="30.34" y=".15" width="7.32" height="1.35"></rect>
+   <circle cx="34" cy="12.5" r=".35" fill="rgba(255,255,255,.96)" stroke="none"></circle>
+   <path d="M26.69 18 Q34 24.8 41.31 18"></path>
+
+   <rect x="13.84" y="87" width="40.32" height="16.5"></rect>
+   <rect x="24.84" y="97.5" width="18.32" height="5.5"></rect>
+   <rect x="30.34" y="103.5" width="7.32" height="1.35"></rect>
+   <circle cx="34" cy="92.5" r=".35" fill="rgba(255,255,255,.96)" stroke="none"></circle>
+   <path d="M26.69 87 Q34 80.2 41.31 87"></path>
+
+   <path d="M1.5 3.5 A2 2 0 0 1 3.5 1.5"></path>
+   <path d="M64.5 1.5 A2 2 0 0 1 66.5 3.5"></path>
+   <path d="M1.5 101.5 A2 2 0 0 0 3.5 103.5"></path>
+   <path d="M64.5 103.5 A2 2 0 0 0 66.5 101.5"></path>
+  </g>
+ </svg>`
 }
+
+function video16PitchMarkings(){ return furugenPitchSvg() }
 function video16FormationSlots(f){
  const map={
   '3-2-2':[['GP',50,91],['DF',22,70],['DF',50,68],['DF',78,70],['MF',35,45],['MF',65,45],['FW',35,19],['FW',65,19]],
@@ -2130,11 +2144,7 @@ function video171UpdateTimeline(){
  if(cur)cur.textContent=video171Format(v.currentTime||0);
  if(dur)dur.textContent=video171Format(v.duration||0)
 }
-function video171PitchBase(){
- return `<div class="v171-outline"></div><div class="v171-half"></div><div class="v171-circle"></div><div class="v171-spot"></div>
- <div class="v171-box v171-top-box"></div><div class="v171-smallbox v171-top-small"></div><div class="v171-goal v171-top-goal"></div>
- <div class="v171-box v171-bottom-box"></div><div class="v171-smallbox v171-bottom-small"></div><div class="v171-goal v171-bottom-goal"></div>`
-}
+function video171PitchBase(){ return furugenPitchSvg() }
 function video171Rows(){
  const current=video171Video()?.currentTime||0,windowSec=Number($('video171TrailSeconds')?.value||5);
  const start=Math.max(0,current-windowSec),rows=[];

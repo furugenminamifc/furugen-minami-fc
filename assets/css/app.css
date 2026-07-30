@@ -872,3 +872,67 @@ img[loading="lazy"]{content-visibility:auto}
 .v172-legend .away{background:#fee2e2;color:#b91c1c}
 .v172-legend .pass{background:#cffafe;color:#0e7490}
 .v172-legend .shot{background:#ffe4e6;color:#be123c}
+
+
+/* Ver.17.2.1 SVGコート描画 */
+.furugen-pitch-svg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:2;
+  pointer-events:none;
+  overflow:visible;
+}
+.coach15-pitch,
+.video16x-pitch,
+.video171-pitch{
+  isolation:isolate;
+}
+.coach15-pitch::before,
+.coach15-pitch::after,
+.video16x-pitch::before,
+.video16x-pitch::after,
+.video171-pitch::before,
+.video171-pitch::after{
+  content:none !important;
+  display:none !important;
+}
+.coach15-pitch .pitch-outline,
+.coach15-pitch .pitch-halfway,
+.coach15-pitch .pitch-center-circle,
+.coach15-pitch .pitch-center-spot,
+.coach15-pitch .pitch-box,
+.coach15-pitch .pitch-goalbox,
+.coach15-pitch .pitch-goal,
+.coach15-pitch .pitch-arc,
+.video16x-pitch .v16-outline,
+.video16x-pitch .v16-half,
+.video16x-pitch .v16-circle,
+.video16x-pitch .v16-spot,
+.video16x-pitch .v16-box,
+.video16x-pitch .v16-smallbox,
+.video16x-pitch .v16-goal,
+.video171-pitch .v171-outline,
+.video171-pitch .v171-half,
+.video171-pitch .v171-circle,
+.video171-pitch .v171-spot,
+.video171-pitch .v171-box,
+.video171-pitch .v171-smallbox,
+.video171-pitch .v171-goal{
+  display:none !important;
+}
+.coach15-player,
+.v16-player-marker,
+.v16-ball,
+.v16-arrow,
+.v16-heat,
+.v171-player,
+.v171-ball,
+.v171-line,
+.v171-svg,
+.v172-court-time,
+.v172-legend,
+.video162-auto{
+  z-index:5;
+}
