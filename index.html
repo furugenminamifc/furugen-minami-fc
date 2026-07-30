@@ -5,21 +5,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0284c7">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>古堅南FC Ver.8.0</title>
+<title>古堅南FC Ver.8.1</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
-<link rel="stylesheet" href="./assets/css/app.css?v=8.0.0">
+<link rel="stylesheet" href="./assets/css/app.css?v=8.1.0">
 </head>
 <body>
-<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC Ver.8.0</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
+<header><div class="title"><span id="teamBrand"><img id="headerEmblem" class="header-emblem hidden" alt="エンブレム">⚽ 古堅南FC Ver.8.1</span></div><div id="mode" class="subtitle">保護者閲覧モード</div></header>
 <nav>
 <button onclick="showPage('home')">ホーム</button><button onclick="showPage('players')">選手</button><button onclick="showPage('matches')">試合</button><button onclick="showPage('entry')">試合入力</button><button onclick="showPage('ranking')">ランキング</button><button onclick="showPage('analytics')">試合分析</button><button onclick="showPage('reports')">📄 レポート</button><button onclick="showPage('video')">🎥 動画メモ</button><button onclick="showPage('ai')">🤖 AI</button><button onclick="showPage('ver7')">🚀 Ver.7 AI分析</button><button id="settingsNav" class="hidden" onclick="showPage('settings')">チーム設定</button><button onclick="showPage('login')">コーチログイン</button>
 </nav>
 <main>
 <div id="message" class="notice hidden"></div>
 <section id="home" class="page show"><div id="stats" class="grid"></div><div class="card"><div class="section-title"><h3>最近の試合</h3><button class="light" onclick="exportAllCsv()">CSV出力</button></div><div id="recent"></div></div></section>
-<section id="players" class="page"><div class="card"><div class="section-title"><h3>選手一覧</h3><button id="addPlayerBtn" class="hidden" onclick="openPlayerModal()">選手追加</button></div><div class="toolbar"><div class="field"><label>検索</label><input id="playerSearch" placeholder="名前・学年・ポジション" oninput="renderPlayers()"></div><div class="field"><label>状態</label><select id="statusFilter" onchange="renderPlayers()"><option value="">すべて</option><option>現役</option><option>卒団</option><option>退団</option></select></div></div><div class="table"><table><thead><tr><th>名前</th><th>学年</th><th>位置</th><th>状態</th><th>出場</th><th>得点</th><th>アシスト</th><th>時間</th><th>操作</th></tr></thead><tbody id="playerBody"></tbody></table></div></div></section>
+<section id="players" class="page"><div class="card"><div class="section-title"><h3>選手一覧</h3><button id="addPlayerBtn" class="hidden" onclick="openPlayerModal()">選手追加</button></div><div class="toolbar"><div class="field"><label>検索</label><input id="playerSearch" placeholder="名前・学年・ポジション" oninput="resetPlayerPage()"></div><div class="field"><label>状態</label><select id="statusFilter" onchange="resetPlayerPage()"><option value="">すべて</option><option>現役</option><option>卒団</option><option>退団</option></select></div></div><div class="table"><table><thead><tr><th>名前</th><th>学年</th><th>位置</th><th>状態</th><th>出場</th><th>得点</th><th>アシスト</th><th>時間</th><th>操作</th></tr></thead><tbody id="playerBody"></tbody></table></div>
+<div id="playerPager" class="player-pager"></div>
+</div></section>
 <section id="matches" class="page"><div class="card"><h3>試合一覧</h3><div class="toolbar"><div class="field"><label>年度</label><select id="matchSeason" onchange="renderMatches()"><option value="">すべて</option></select></div><div class="field"><label>大会・相手検索</label><input id="matchSearch" oninput="renderMatches()"></div></div><div id="matchList"></div></div></section>
 <section id="entry" class="page"><div class="card"><h3>試合と選手記録をまとめて入力</h3><div id="needLogin" class="notice">管理者またはコーチでログインすると入力できます。</div><div id="entryForm" class="hidden">
 <div class="grid"><div><label>試合日</label><input id="matchDate" type="date"></div><div><label>大会名</label><input id="competition"></div><div><label>対戦相手</label><input id="opponent"></div><div><label>会場</label><input id="venue"></div><div><label>古堅南FC得点</label><input id="goalsFor" type="number" min="0" value="0"></div><div><label>相手得点</label><input id="goalsAgainst" type="number" min="0" value="0"></div></div><label>メモ</label><textarea id="matchMemo"></textarea>
@@ -202,5 +204,5 @@
 <div class="muted">MacのDockerで使う場合は https://furugen-minami-ai.onrender.com。iPhoneから使う場合は、後でHTTPS公開したAIサーバーURLが必要です。</div><br>
 <label>チーム向け補足指示（任意）</label><textarea id="aiTeamInstruction" placeholder="例：小学生に伝わる言葉を使い、安全を最優先にする"></textarea><br>
 <button onclick="saveAiSettings()">保存</button> <button class="secondary" onclick="closeAiSettings()">閉じる</button></div></div>
-<script src="./assets/js/app.js?v=8.0.0"></script>
+<script src="./assets/js/app.js?v=8.1.0"></script>
 </body></html>

@@ -119,3 +119,15 @@ button.mini{padding:5px 8px;font-size:12px}
  .medical-row,.skill-history-row{grid-template-columns:1fr}
  .skill-chart-wrap{height:300px}
 }
+
+
+/* Ver.8.1 軽量化・高速化 */
+.player-pager{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 4px 2px;flex-wrap:wrap}
+.pager-info{font-size:13px;color:#64748b}
+.pager-buttons{display:flex;align-items:center;gap:8px}
+.pager-buttons button:disabled{opacity:.4;cursor:not-allowed}
+img[loading="lazy"]{content-visibility:auto}
+@media(max-width:760px){
+ .player-pager{justify-content:center}
+ .pager-info{width:100%;text-align:center}
+}

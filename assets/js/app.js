@@ -1,4 +1,8 @@
 let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],playerMedicalRecords=[],playerSkillEvaluations=[],teamSettings={},editingMatchId='',charts={};
+let playerPage=1;
+const PLAYER_PAGE_SIZE=20;
+const detailCache=new Map();
+const DETAIL_CACHE_MS=5*60*1000;
 const $=id=>document.getElementById(id);
 function showMessage(text,type='warn'){const e=$('message');e.textContent=text;e.className=(type==='ok'?'notice success':'notice');e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),5000)}
 function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));$(id).classList.add('show');if(id==='entry')renderRecordInputs();if(id==='analytics')setTimeout(renderAnalytics,0);if(id==='ai')setTimeout(testAiConnection,0);if(id==='reports')setTimeout(renderReportsPage,0);if(id==='video')setTimeout(renderVideoPage,0);if(id==='ver7')setTimeout(renderV7Page,0)}
@@ -6,15 +10,43 @@ function isStaff(){return !!(profile&&profile.active&&['admin','coach'].includes
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 async function init(){const c=window.FURUGEN_CONFIG;if(!c||!c.SUPABASE_URL||!c.SUPABASE_ANON_KEY){showMessage('config.jsの設定がありません。');return}sb=supabase.createClient(c.SUPABASE_URL,c.SUPABASE_ANON_KEY);const x=await sb.auth.getSession();session=x.data.session;await loadProfile();await loadAll();setupRealtime();sb.auth.onAuthStateChange(async(_,s)=>{session=s;await loadProfile();await loadAll()});if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
 async function loadProfile(){profile=null;if(session){const r=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();profile=r.data}const staff=isStaff();$('mode').textContent=staff?`${session.user.email}（${profile.role==='admin'?'管理者':'コーチ'}）`:'保護者閲覧モード';$('loginOut').classList.toggle('hidden',!!session);$('loginIn').classList.toggle('hidden',!session);$('entryForm').classList.toggle('hidden',!staff);$('needLogin').classList.toggle('hidden',staff);$('addPlayerBtn').classList.toggle('hidden',!staff);if(session)$('loginWho').textContent=`${session.user.email} / 権限：${profile?.role||'未設定'}`}
-async function loadAll(){const [p,m,r,t,rp,vn,v7,pp,pg,pm,ps]=await Promise.all([sb.from('players').select('*').order('grade').order('name'),sb.from('matches').select('*').order('match_date',{ascending:false}),sb.from('records').select('*'),sb.from('team_settings').select('*'),sb.from('ai_reports').select('*').order('created_at',{ascending:false}),sb.from('video_notes').select('*').order('created_at',{ascending:false}),sb.from('ai_plans').select('*').order('created_at',{ascending:false}),isStaff()?sb.from('player_private').select('*'):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_growth_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_medical_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_skill_evaluations').select('*').order('evaluation_date',{ascending:false}):Promise.resolve({data:[],error:null})]);if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}players=p.data||[];matches=m.data||[];records=r.data||[];reports=rp.error?[]:(rp.data||[]);videoNotes=vn.error?[]:(vn.data||[]);v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);playerPrivate=pp.error?[]:(pp.data||[]);playerGrowthRecords=pg.error?[]:(pg.data||[]);playerMedicalRecords=pm.error?[]:(pm.data||[]);playerSkillEvaluations=ps.error?[]:(ps.data||[]);teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);applyTeamSettings();refreshFilters();renderAll()}
-function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_growth_records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_medical_records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_skill_evaluations'},loadAll).subscribe()}
+async function loadAll(){
+ const [p,m,r,t,rp,vn,v7]=await Promise.all([
+  sb.from('players').select('*').order('grade').order('name'),
+  sb.from('matches').select('*').order('match_date',{ascending:false}),
+  sb.from('records').select('*'),
+  sb.from('team_settings').select('*'),
+  sb.from('ai_reports').select('*').order('created_at',{ascending:false}).limit(100),
+  sb.from('video_notes').select('*').order('created_at',{ascending:false}).limit(100),
+  sb.from('ai_plans').select('*').order('created_at',{ascending:false}).limit(100)
+ ]);
+ if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}
+ players=p.data||[];matches=m.data||[];records=r.data||[];
+ reports=rp.error?[]:(rp.data||[]);
+ videoNotes=vn.error?[]:(vn.data||[]);
+ v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);
+ playerPrivate=[];playerGrowthRecords=[];playerMedicalRecords=[];playerSkillEvaluations=[];
+ teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);
+ applyTeamSettings();refreshFilters();renderAll()
+}
+function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).subscribe()}
 function totals(p){const rr=records.filter(x=>x.player_id===p.id);return{apps:(p.past_apps||0)+rr.filter(x=>x.played).length,minutes:rr.reduce((a,x)=>a+(x.minutes||0),0),goals:(p.past_goals||0)+rr.reduce((a,x)=>a+(x.goals||0),0),assists:(p.past_assists||0)+rr.reduce((a,x)=>a+(x.assists||0),0),yellow:(p.past_yellow||0)+rr.reduce((a,x)=>a+(x.yellow||0),0),red:(p.past_red||0)+rr.reduce((a,x)=>a+(x.red||0),0),mvp:rr.filter(x=>x.mvp).length}}
 function refreshFilters(){const seasons=[...new Set(matches.map(x=>x.season||String(x.match_date||'').slice(0,4)).filter(Boolean))].sort().reverse();$('matchSeason').innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');const grades=[...new Set(players.map(x=>x.grade).filter(Boolean))].sort();$('rankGrade').innerHTML='<option value="">すべて</option>'+grades.map(x=>`<option>${esc(x)}</option>`).join('');const as=$('analysisSeason'),ac=$('analysisCompetition');if(as){const seasons=[...new Set(matches.map(x=>x.season).filter(Boolean))].sort((a,b)=>b-a);const keep=as.value;as.innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');as.value=keep}if(ac){const comps=[...new Set(matches.map(x=>x.competition||'通常試合'))].sort((a,b)=>a.localeCompare(b,'ja'));const keep=ac.value;ac.innerHTML='<option value="">すべて</option>'+comps.map(x=>`<option>${esc(x)}</option>`).join('');ac.value=keep}}
 function renderAll(){renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
 function renderDashboard(){let w=0,d=0,l=0,gf=0,ga=0;matches.forEach(m=>{gf+=m.goals_for||0;ga+=m.goals_against||0;m.goals_for>m.goals_against?w++:m.goals_for<m.goals_against?l++:d++});const rate=matches.length?Math.round(w/matches.length*100):0;$('stats').innerHTML=[['選手',players.length],['試合',matches.length],['勝利',w],['引分',d],['敗戦',l],['勝率',rate+'%'],['得点',gf],['失点',ga]].map(x=>`<div class="card stat"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');$('recent').innerHTML=matches.slice(0,6).map(matchHtml).join('')||'<p class="muted">まだ試合がありません。</p>'}
 function resultClass(m){return m.goals_for>m.goals_against?'win':m.goals_for<m.goals_against?'loss':'draw'}
 function matchHtml(m){return `<div class="match-row"><div><b>${esc(m.match_date)}</b> <span class="pill">${esc(m.competition||'通常試合')}</span><div class="muted">${esc(m.venue||'')} ${esc(m.memo||'')}</div></div><div><span class="score ${resultClass(m)}">${m.goals_for} - ${m.goals_against}</span><br>${esc(m.opponent)}</div></div>`}
-function renderPlayers(){const q=$('playerSearch').value.trim().toLowerCase(),status=$('statusFilter').value;const list=players.filter(p=>(!status||p.status===status)&&(!q||`${p.name} ${p.grade} ${p.position} ${p.number||''}`.toLowerCase().includes(q)));$('playerBody').innerHTML=list.map(p=>{const t=totals(p);return `<tr><td><button class="player-link" onclick="openPlayerDetail('${p.id}')"><div class="player-name">${p.photo_url?`<img class="avatar" src="${esc(p.photo_url)}" alt="">`:`<span class="avatar"></span>`}<span><b>${esc(p.name)}</b>${p.number?` #${esc(p.number)}`:''}</span></div></button></td><td>${esc(p.grade)}</td><td>${esc(p.position)}</td><td>${esc(p.status)}</td><td>${t.apps}</td><td>${t.goals}</td><td>${t.assists}</td><td>${t.minutes}</td><td><button class="light" onclick="openPlayerDetail('${p.id}')">詳細</button>${isStaff()?` <button class="light" onclick="openPlayerModal('${p.id}')">編集</button> <button class="danger" onclick="deletePlayer('${p.id}')">削除</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="9" class="muted">該当する選手がいません。</td></tr>'}
+function resetPlayerPage(){playerPage=1;renderPlayers()}
+function changePlayerPage(page){playerPage=Math.max(1,page);renderPlayers();document.getElementById('players')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function renderPlayers(){
+ const q=$('playerSearch').value.trim().toLowerCase(),status=$('statusFilter').value;
+ const list=players.filter(p=>(!status||p.status===status)&&(!q||`${p.name} ${p.grade} ${p.position} ${p.number||''}`.toLowerCase().includes(q)));
+ const pages=Math.max(1,Math.ceil(list.length/PLAYER_PAGE_SIZE));if(playerPage>pages)playerPage=pages;
+ const start=(playerPage-1)*PLAYER_PAGE_SIZE,shown=list.slice(start,start+PLAYER_PAGE_SIZE);
+ $('playerBody').innerHTML=shown.map(p=>{const t=totals(p);return `<tr><td><button class="player-link" onclick="openPlayerDetail('${p.id}')"><div class="player-name">${p.photo_url?`<img class="avatar" src="${esc(p.photo_url)}" alt="" loading="lazy" decoding="async">`:`<span class="avatar"></span>`}<span><b>${esc(p.name)}</b>${p.number?` #${esc(p.number)}`:''}</span></div></button></td><td>${esc(p.grade)}</td><td>${esc(p.position)}</td><td>${esc(p.status)}</td><td>${t.apps}</td><td>${t.goals}</td><td>${t.assists}</td><td>${t.minutes}</td><td><button class="light" onclick="openPlayerDetail('${p.id}')">詳細</button>${isStaff()?` <button class="light" onclick="openPlayerModal('${p.id}')">編集</button> <button class="danger" onclick="deletePlayer('${p.id}')">削除</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="9" class="muted">該当する選手がいません。</td></tr>';
+ const pager=$('playerPager');if(!pager)return;
+ pager.innerHTML=list.length?`<div class="pager-info">${list.length}人中 ${start+1}〜${Math.min(start+PLAYER_PAGE_SIZE,list.length)}人を表示</div><div class="pager-buttons"><button class="light" onclick="changePlayerPage(${playerPage-1})" ${playerPage<=1?'disabled':''}>‹ 前へ</button><span>${playerPage} / ${pages}</span><button class="light" onclick="changePlayerPage(${playerPage+1})" ${playerPage>=pages?'disabled':''}>次へ ›</button></div>`:'';
+}
 function renderMatches(){const season=$('matchSeason').value,q=$('matchSearch').value.trim().toLowerCase();const list=matches.filter(m=>(!season||String(m.season)===season)&&(!q||`${m.competition} ${m.opponent} ${m.venue}`.toLowerCase().includes(q)));$('matchList').innerHTML=list.map(m=>{const count=records.filter(r=>r.match_id===m.id&&r.played).length;return `<div class="card"><div class="match-row"><div><b>${esc(m.match_date)}</b> ${esc(m.competition)}<div class="muted">${esc(m.venue)} / 出場 ${count}名</div></div><div><span class="score ${resultClass(m)}">${m.goals_for}-${m.goals_against}</span> ${esc(m.opponent)} ${isStaff()?`<button class="light" onclick="openMatchEdit('${m.id}')">編集</button> <button class="danger" onclick="deleteMatch('${m.id}')">削除</button>`:''}</div></div></div>`}).join('')||'<p class="muted">該当する試合がありません。</p>'}
 function renderRanking(){const type=$('rankType').value,grade=$('rankGrade').value,status=$('rankStatus').value;const list=players.filter(p=>(!grade||p.grade===grade)&&(!status||p.status===status)).map(p=>({p,t:totals(p)})).sort((a,b)=>b.t[type]-a.t[type]||a.p.name.localeCompare(b.p.name,'ja'));$('rankBody').innerHTML=list.map((x,i)=>`<tr><td class="${i===0?'rank1':''}">${i+1}</td><td><b>${esc(x.p.name)}</b></td><td>${esc(x.p.grade)}</td><td>${esc(x.p.position)}</td><td><b>${x.t[type]}</b>${type==='minutes'?'分':''}</td></tr>`).join('')}
 function renderRecordInputs(){if(!isStaff())return;const existing=new Map(records.filter(r=>r.match_id===editingMatchId).map(r=>[r.player_id,r]));$('recordInputs').innerHTML=`<div class="player-entry muted"><div>選手</div><div>出場</div><div>時間</div><div>得点</div><div class="extra">アシスト</div><div class="extra">黄</div><div class="extra">赤</div><div class="extra">MVP</div></div>`+players.filter(p=>p.status==='現役'||existing.has(p.id)).map(p=>{const r=existing.get(p.id)||{};return `<div class="player-entry" data-player="${p.id}"><div><b>${esc(p.name)}</b><div class="muted">${esc(p.grade)} ${esc(p.position)}</div></div><div><input class="played" type="checkbox" ${r.played?'checked':''}></div><div><input class="minutes" type="number" min="0" value="${r.minutes||0}"></div><div><input class="goals" type="number" min="0" value="${r.goals||0}"></div><div class="extra"><input class="assists" type="number" min="0" value="${r.assists||0}"></div><div class="extra"><input class="yellow" type="number" min="0" value="${r.yellow||0}"></div><div class="extra"><input class="red" type="number" min="0" value="${r.red||0}"></div><div class="extra"><input class="mvp" type="checkbox" ${r.mvp?'checked':''}></div></div>`}).join('')}
@@ -31,12 +63,33 @@ function levelLabel(v,type){const n=Number(v)||3;return type==='fatigue'?['','�
 let activePlayerDetailId='',playerGrowthChart=null;
 function playerMatchRows(id){return records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||''))}
 function playerDetailTabButton(id,label,icon,staffOnly=false){if(staffOnly&&!isStaff())return '';return `<button class="player-detail-tab" data-player-tab="${id}" onclick="switchPlayerDetailTab('${id}',this)">${icon} ${label}</button>`}
+async function loadPlayerDetailData(playerId,force=false){
+ if(!isStaff()){playerPrivate=[];playerGrowthRecords=[];playerMedicalRecords=[];playerSkillEvaluations=[];return}
+ const key=String(playerId),cached=detailCache.get(key);
+ if(!force&&cached&&Date.now()-cached.time<DETAIL_CACHE_MS){
+  playerPrivate=cached.privateData;playerGrowthRecords=cached.growth;
+  playerMedicalRecords=cached.medical;playerSkillEvaluations=cached.skills;return
+ }
+ const [pv,gr,med,sk]=await Promise.all([
+  sb.from('player_private').select('*').eq('player_id',key),
+  sb.from('player_growth_records').select('*').eq('player_id',key).order('record_date',{ascending:false}),
+  sb.from('player_medical_records').select('*').eq('player_id',key).order('record_date',{ascending:false}),
+  sb.from('player_skill_evaluations').select('*').eq('player_id',key).order('evaluation_date',{ascending:false})
+ ]);
+ playerPrivate=pv.error?[]:(pv.data||[]);
+ playerGrowthRecords=gr.error?[]:(gr.data||[]);
+ playerMedicalRecords=med.error?[]:(med.data||[]);
+ playerSkillEvaluations=sk.error?[]:(sk.data||[]);
+ detailCache.set(key,{time:Date.now(),privateData:playerPrivate,growth:playerGrowthRecords,medical:playerMedicalRecords,skills:playerSkillEvaluations})
+}
+function clearPlayerDetailCache(playerId){detailCache.delete(String(playerId))}
 function medicalForPlayer(id){return playerMedicalRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
 function skillsForPlayer(id){return playerSkillEvaluations.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.evaluation_date||'').localeCompare(a.evaluation_date||''))}
 function growthForPlayer(id){return playerGrowthRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
 function growthStatusLabel(v){return ({full:'参加',limited:'一部参加',rest:'見学・休養',absent:'欠席'})[v]||v||'未設定'}
 function injuryLabel(v){return ({none:'なし',watch:'経過観察',injured:'ケガあり',returning:'復帰途中'})[v]||v||'未設定'}
-function openPlayerDetail(id){
+async function openPlayerDetail(id){
+ await loadPlayerDetailData(id);
  const p=players.find(x=>String(x.id)===String(id));if(!p)return;
  activePlayerDetailId=String(id);
  const t=totals(p),pv=privateForPlayer(id),rows=playerMatchRows(id),staff=isStaff();
@@ -45,7 +98,7 @@ function openPlayerDetail(id){
  const assistRate=t.apps?(t.assists/t.apps).toFixed(2):'0.00';
  $('playerDetailContent').innerHTML=`
  <div class="player-profile-head">
-   <img src="${esc(p.photo_url||defaultAvatar())}" alt="">
+   <img src="${esc(p.photo_url||defaultAvatar())}" alt="" loading="lazy" decoding="async">
    <div>
      <h2>${esc(p.name)} ${p.number?`<span class="pill">#${esc(p.number)}</span>`:''}</h2>
      <div class="muted">${esc(p.grade||'学年未設定')} / ${esc(p.position||'ポジション未設定')} / ${esc(p.status||'')}</div>
@@ -260,13 +313,13 @@ async function saveGrowthRecord(playerId){
  const data={player_id:String(playerId),record_date:date,height_cm:+$('growthHeight').value||null,weight_kg:+$('growthWeight').value||null,sleep_hours:+$('growthSleep').value||null,fatigue_level:+$('growthFatigue').value||3,condition_level:+$('growthCondition').value||3,injury_status:$('growthInjury').value,training_status:$('growthTraining').value,coach_score:+$('growthCoachScore').value||3,note:$('growthNote').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
  const r=await sb.from('player_growth_records').upsert(data,{onConflict:'player_id,record_date'});
  if(r.error){showMessage('成長記録を保存できません：'+r.error.message);return}
- showMessage('成長記録を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
+ showMessage('成長記録を保存しました。','ok');clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
 }
 async function deleteGrowthRecord(id){
  if(!isStaff()||!confirm('この成長記録を削除しますか？'))return;
  const playerId=activePlayerDetailId;const r=await sb.from('player_growth_records').delete().eq('id',id);
  if(r.error){showMessage(r.error.message);return}
- showMessage('成長記録を削除しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
+ showMessage('成長記録を削除しました。','ok');clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
 }
 function renderPlayerBodyGrowthChart(id){
  if(!window.Chart)return;const canvas=$('playerBodyGrowthCanvas');if(!canvas)return;
@@ -279,9 +332,9 @@ async function saveMedicalRecord(playerId){
  const date=$('medicalDate').value;if(!date){showMessage('記録日を入力してください。');return}
  const data={player_id:String(playerId),record_date:date,body_part:$('medicalBodyPart').value.trim(),diagnosis:$('medicalDiagnosis').value.trim(),severity:+$('medicalSeverity').value||3,participation_status:$('medicalParticipation').value,return_date:$('medicalReturnDate').value||null,clinic:$('medicalClinic').value.trim(),visit_status:$('medicalVisitStatus').value,action_note:$('medicalAction').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
  const r=await sb.from('player_medical_records').insert(data);if(r.error){showMessage(r.error.message);return}
- showMessage('メディカル記録を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)
+ showMessage('メディカル記録を保存しました。','ok');clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)
 }
-async function deleteMedicalRecord(id){if(!isStaff()||!confirm('このメディカル記録を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_medical_records').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)}
+async function deleteMedicalRecord(id){if(!isStaff()||!confirm('このメディカル記録を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_medical_records').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)}
 
 function toggleSkillEntry(){const e=$('skillEntryForm');if(e)e.classList.toggle('hidden')}
 async function saveSkillEvaluation(playerId){
@@ -289,9 +342,9 @@ async function saveSkillEvaluation(playerId){
  const date=$('skillDate').value;if(!date){showMessage('評価日を入力してください。');return}
  const data={player_id:String(playerId),evaluation_date:date,dribbling:+$('skill0').value,passing:+$('skill1').value,shooting:+$('skill2').value,defending:+$('skill3').value,speed:+$('skill4').value,decision_making:+$('skill5').value,physical:+$('skill6').value,mental:+$('skill7').value,comment:$('skillComment').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
  const r=await sb.from('player_skill_evaluations').upsert(data,{onConflict:'player_id,evaluation_date'});if(r.error){showMessage(r.error.message);return}
- showMessage('技術評価を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)
+ showMessage('技術評価を保存しました。','ok');clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)
 }
-async function deleteSkillEvaluation(id){if(!isStaff()||!confirm('この技術評価を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_skill_evaluations').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)}
+async function deleteSkillEvaluation(id){if(!isStaff()||!confirm('この技術評価を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_skill_evaluations').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}clearPlayerDetailCache(playerId);await loadPlayerDetailData(playerId,true);openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)}
 function renderPlayerSkillChart(id){
  if(!window.Chart)return;const canvas=$('playerSkillCanvas');if(!canvas)return;const s=skillsForPlayer(id)[0];
  if(canvas._chart)canvas._chart.destroy();const vals=s?[s.dribbling,s.passing,s.shooting,s.defending,s.speed,s.decision_making,s.physical,s.mental]:[0,0,0,0,0,0,0,0];
