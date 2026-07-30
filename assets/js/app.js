@@ -406,6 +406,139 @@ ${text}
 優先順位、所要時間、担当、確認事項の順で簡潔にまとめてください。`;
  coachSendPrompt('season',prompt)
 }
+
+function coach15ChatKey(){return 'furugenCoach15Chat'}
+function loadCoach15Chat(){
+ const log=$('coach15ChatLog');if(!log)return;
+ let rows=[];try{rows=JSON.parse(localStorage.getItem(coach15ChatKey())||'[]')}catch(e){}
+ if(!rows.length)rows=[{role:'ai',text:'こんにちは。古堅南FC AI Coachです。スタメン、練習、相手対策、保護者文章、試合評価を一緒に整理します。'}];
+ log.innerHTML=rows.map(r=>`<div class="coach15-msg ${r.role}">${esc(r.text)}</div>`).join('');
+ log.scrollTop=log.scrollHeight
+}
+function saveCoach15Chat(rows){localStorage.setItem(coach15ChatKey(),JSON.stringify(rows.slice(-20)))}
+function clearCoach15Chat(){localStorage.removeItem(coach15ChatKey());loadCoach15Chat()}
+function askCoach15Preset(type){
+ const map={
+  lineup:'次の試合のスタメンと交代案を考えてください。',
+  training:'最近の試合課題から次回の練習メニューを作ってください。',
+  opponent:'相手チーム対策を考えるための確認項目と戦術案を作ってください。',
+  parents:'直近試合の保護者向けLINE文章を作ってください。',
+  evaluation:'直近試合のチーム評価と改善点を整理してください。'
+ };
+ const input=$('coach15Input');if(input){input.value=map[type]||'';sendCoach15Chat()}
+}
+function buildCoach15Context(){
+ const latest=matches[0];
+ const playersText=players.filter(p=>p.status==='現役').slice(0,40).map(p=>{const t=totals(p);return `${p.name} ${p.grade} ${p.position} 出場${t.apps} 時間${t.minutes} 得点${t.goals} アシスト${t.assists}`}).join('\n');
+ return `チーム:古堅南FC
+直近試合:${latest?`${latest.match_date||''} 対${latest.opponent||''} ${latest.goals_for||0}-${latest.goals_against||0}`:'未登録'}
+選手:
+${playersText}`
+}
+function sendCoach15Chat(){
+ const input=$('coach15Input'),text=input?.value.trim();if(!text)return;
+ let rows=[];try{rows=JSON.parse(localStorage.getItem(coach15ChatKey())||'[]')}catch(e){}
+ rows.push({role:'user',text});
+ saveCoach15Chat(rows);loadCoach15Chat();
+ const prompt=`あなたは少年サッカーのAIコーチです。
+${buildCoach15Context()}
+
+コーチからの相談:
+${text}
+
+小学生年代に適した、安全で前向きな提案をしてください。
+必要なら、候補・理由・確認事項・最終判断ポイントの順で整理してください。`;
+ if(input)input.value='';
+ coachSendPrompt('match',prompt)
+}
+function coach15FormationSlots(formation){
+ const map={
+  '3-2-2':[['GP',50,92],['DF',22,70],['DF',50,66],['DF',78,70],['MF',35,44],['MF',65,44],['FW',35,18],['FW',65,18]],
+  '2-3-2':[['GP',50,92],['DF',32,70],['DF',68,70],['MF',20,45],['MF',50,42],['MF',80,45],['FW',35,18],['FW',65,18]],
+  '3-3-1':[['GP',50,92],['DF',22,70],['DF',50,66],['DF',78,70],['MF',22,43],['MF',50,40],['MF',78,43],['FW',50,16]],
+  '2-2-3':[['GP',50,92],['DF',32,70],['DF',68,70],['MF',35,45],['MF',65,45],['FW',20,18],['FW',50,14],['FW',80,18]]
+ };
+ return map[formation]||map['3-2-2']
+}
+function coach15BoardPlayers(){
+ try{return JSON.parse(localStorage.getItem('furugenCoach15BoardPlayers')||'[]')}catch(e){return []}
+}
+function renderCoach15Board(){
+ const pitch=$('coach15Pitch');if(!pitch)return;
+ const formation=$('coach15Formation')?.value||'3-2-2',slots=coach15FormationSlots(formation),selected=coach15BoardPlayers();
+ pitch.innerHTML=slots.map((s,i)=>`<div class="coach15-player" style="left:${s[1]}%;top:${s[2]}%">
+   <span>${s[0]}</span><b>${esc(selected[i]?.name||'未選択')}</b>
+  </div>`).join('')
+}
+function autoAssignCoach15Board(){
+ const formation=$('coach15Formation')?.value||'3-2-2',slots=coach15FormationSlots(formation);
+ const active=players.filter(p=>p.status==='現役');
+ const used=new Set(),picked=[];
+ const pick=(role)=>{
+  let p=active.find(x=>!used.has(x.id)&&(x.position||'').includes(role));
+  if(!p)p=active.find(x=>!used.has(x.id));
+  if(p){used.add(p.id);picked.push(p)}
+ };
+ slots.forEach(s=>pick(s[0]));
+ localStorage.setItem('furugenCoach15BoardPlayers',JSON.stringify(picked));
+ renderCoach15Board();showMessage('選手を自動配置しました。','ok')
+}
+function runCoach15TacticalPlan(){
+ const formation=$('coach15Formation')?.value||'3-2-2',selected=coach15BoardPlayers();
+ const prompt=`古堅南FCの8人制サッカー戦術案を作成してください。
+フォーメーション:${formation}
+配置選手:${selected.map((p,i)=>`${i+1}.${p.name} ${p.position}`).join('、')||'未配置'}
+直近試合:${matches[0]?`${matches[0].opponent||''} ${matches[0].goals_for||0}-${matches[0].goals_against||0}`:'未登録'}
+
+次の順で作成してください。
+1. 攻撃時の立ち位置
+2. 守備時の立ち位置
+3. ビルドアップ
+4. 切り替え
+5. セットプレー
+6. 選手への簡単な声かけ
+7. 試合前に確認すること`;
+ coachSendPrompt('lineup',prompt)
+}
+function insertCoach15HalfTemplate(){
+ const e=$('coach15HalfNotes');if(e)e.value=`守備ラインが低い
+右サイドで数的不利
+決定機2回
+ボールロスト後の戻りが遅い
+前線の距離が遠い`;
+}
+function runCoach15HalfTime(){
+ const notes=$('coach15HalfNotes')?.value.trim()||'',latest=matches[0];
+ const prompt=`少年サッカーのハーフタイムミーティング案を作成してください。
+試合:${latest?`対${latest.opponent||''} ${latest.goals_for||0}-${latest.goals_against||0}`:'未登録'}
+前半メモ:
+${notes||'未入力'}
+
+2分以内で伝えられるように、
+1. まず褒めること
+2. 修正点2つ
+3. 後半の約束3つ
+4. 最後の一言
+の順で、短く具体的に作成してください。`;
+ coachSendPrompt('match',prompt)
+}
+function runCoach15Substitution(){
+ const min=$('coach15MatchMinute')?.value||20,score=$('coach15CurrentScore')?.value||'未入力',notes=$('coach15ConditionNotes')?.value.trim()||'未入力';
+ const active=players.filter(p=>p.status==='現役').map(p=>{const t=totals(p);return `${p.name} ${p.position} 総出場${t.minutes}分`}).join('\n');
+ const prompt=`8人制少年サッカーの交代案を作成してください。
+試合時間:${min}分
+現在スコア:${score}
+現場メモ:${notes}
+選手一覧:
+${active}
+
+条件:
+・体調と安全を最優先
+・出場時間の公平性に配慮
+・交代候補、投入候補、理由、確認事項を示す
+・AIは提案のみで、最終判断はコーチが行うと明記する`;
+ coachSendPrompt('lineup',prompt)
+}
 function switchCoach11Mode(mode,btn){
  document.querySelectorAll('.coach11-panel').forEach(x=>x.classList.add('hidden'));
  const panel=$(`coach11-${mode}`);if(panel)panel.classList.remove('hidden');
@@ -504,7 +637,9 @@ function renderAiCoachDashboard(){
  }
  renderCoach13PlayerCard();
  renderCoach13TeamFocus();
- renderCoach14Dashboard()
+ renderCoach14Dashboard();
+ loadCoach15Chat();
+ renderCoach15Board()
 }
 function runCoachMatchDiagnosis(){
  const id=$('coachMatchSelect')?.value,m=matches.find(x=>String(x.id)===String(id));
