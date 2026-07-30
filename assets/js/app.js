@@ -1,4 +1,4 @@
-let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],teamSettings={},editingMatchId='',charts={};
+let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],playerMedicalRecords=[],playerSkillEvaluations=[],teamSettings={},editingMatchId='',charts={};
 const $=id=>document.getElementById(id);
 function showMessage(text,type='warn'){const e=$('message');e.textContent=text;e.className=(type==='ok'?'notice success':'notice');e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),5000)}
 function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));$(id).classList.add('show');if(id==='entry')renderRecordInputs();if(id==='analytics')setTimeout(renderAnalytics,0);if(id==='ai')setTimeout(testAiConnection,0);if(id==='reports')setTimeout(renderReportsPage,0);if(id==='video')setTimeout(renderVideoPage,0);if(id==='ver7')setTimeout(renderV7Page,0)}
@@ -6,8 +6,8 @@ function isStaff(){return !!(profile&&profile.active&&['admin','coach'].includes
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 async function init(){const c=window.FURUGEN_CONFIG;if(!c||!c.SUPABASE_URL||!c.SUPABASE_ANON_KEY){showMessage('config.jsの設定がありません。');return}sb=supabase.createClient(c.SUPABASE_URL,c.SUPABASE_ANON_KEY);const x=await sb.auth.getSession();session=x.data.session;await loadProfile();await loadAll();setupRealtime();sb.auth.onAuthStateChange(async(_,s)=>{session=s;await loadProfile();await loadAll()});if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
 async function loadProfile(){profile=null;if(session){const r=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();profile=r.data}const staff=isStaff();$('mode').textContent=staff?`${session.user.email}（${profile.role==='admin'?'管理者':'コーチ'}）`:'保護者閲覧モード';$('loginOut').classList.toggle('hidden',!!session);$('loginIn').classList.toggle('hidden',!session);$('entryForm').classList.toggle('hidden',!staff);$('needLogin').classList.toggle('hidden',staff);$('addPlayerBtn').classList.toggle('hidden',!staff);if(session)$('loginWho').textContent=`${session.user.email} / 権限：${profile?.role||'未設定'}`}
-async function loadAll(){const [p,m,r,t,rp,vn,v7,pp,pg]=await Promise.all([sb.from('players').select('*').order('grade').order('name'),sb.from('matches').select('*').order('match_date',{ascending:false}),sb.from('records').select('*'),sb.from('team_settings').select('*'),sb.from('ai_reports').select('*').order('created_at',{ascending:false}),sb.from('video_notes').select('*').order('created_at',{ascending:false}),sb.from('ai_plans').select('*').order('created_at',{ascending:false}),isStaff()?sb.from('player_private').select('*'):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_growth_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null})]);if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}players=p.data||[];matches=m.data||[];records=r.data||[];reports=rp.error?[]:(rp.data||[]);videoNotes=vn.error?[]:(vn.data||[]);v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);playerPrivate=pp.error?[]:(pp.data||[]);playerGrowthRecords=pg.error?[]:(pg.data||[]);teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);applyTeamSettings();refreshFilters();renderAll()}
-function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_growth_records'},loadAll).subscribe()}
+async function loadAll(){const [p,m,r,t,rp,vn,v7,pp,pg,pm,ps]=await Promise.all([sb.from('players').select('*').order('grade').order('name'),sb.from('matches').select('*').order('match_date',{ascending:false}),sb.from('records').select('*'),sb.from('team_settings').select('*'),sb.from('ai_reports').select('*').order('created_at',{ascending:false}),sb.from('video_notes').select('*').order('created_at',{ascending:false}),sb.from('ai_plans').select('*').order('created_at',{ascending:false}),isStaff()?sb.from('player_private').select('*'):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_growth_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_medical_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_skill_evaluations').select('*').order('evaluation_date',{ascending:false}):Promise.resolve({data:[],error:null})]);if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}players=p.data||[];matches=m.data||[];records=r.data||[];reports=rp.error?[]:(rp.data||[]);videoNotes=vn.error?[]:(vn.data||[]);v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);playerPrivate=pp.error?[]:(pp.data||[]);playerGrowthRecords=pg.error?[]:(pg.data||[]);playerMedicalRecords=pm.error?[]:(pm.data||[]);playerSkillEvaluations=ps.error?[]:(ps.data||[]);teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);applyTeamSettings();refreshFilters();renderAll()}
+function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_growth_records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_medical_records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_skill_evaluations'},loadAll).subscribe()}
 function totals(p){const rr=records.filter(x=>x.player_id===p.id);return{apps:(p.past_apps||0)+rr.filter(x=>x.played).length,minutes:rr.reduce((a,x)=>a+(x.minutes||0),0),goals:(p.past_goals||0)+rr.reduce((a,x)=>a+(x.goals||0),0),assists:(p.past_assists||0)+rr.reduce((a,x)=>a+(x.assists||0),0),yellow:(p.past_yellow||0)+rr.reduce((a,x)=>a+(x.yellow||0),0),red:(p.past_red||0)+rr.reduce((a,x)=>a+(x.red||0),0),mvp:rr.filter(x=>x.mvp).length}}
 function refreshFilters(){const seasons=[...new Set(matches.map(x=>x.season||String(x.match_date||'').slice(0,4)).filter(Boolean))].sort().reverse();$('matchSeason').innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');const grades=[...new Set(players.map(x=>x.grade).filter(Boolean))].sort();$('rankGrade').innerHTML='<option value="">すべて</option>'+grades.map(x=>`<option>${esc(x)}</option>`).join('');const as=$('analysisSeason'),ac=$('analysisCompetition');if(as){const seasons=[...new Set(matches.map(x=>x.season).filter(Boolean))].sort((a,b)=>b-a);const keep=as.value;as.innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');as.value=keep}if(ac){const comps=[...new Set(matches.map(x=>x.competition||'通常試合'))].sort((a,b)=>a.localeCompare(b,'ja'));const keep=ac.value;ac.innerHTML='<option value="">すべて</option>'+comps.map(x=>`<option>${esc(x)}</option>`).join('');ac.value=keep}}
 function renderAll(){renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
@@ -31,6 +31,8 @@ function levelLabel(v,type){const n=Number(v)||3;return type==='fatigue'?['','�
 let activePlayerDetailId='',playerGrowthChart=null;
 function playerMatchRows(id){return records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||''))}
 function playerDetailTabButton(id,label,icon,staffOnly=false){if(staffOnly&&!isStaff())return '';return `<button class="player-detail-tab" data-player-tab="${id}" onclick="switchPlayerDetailTab('${id}',this)">${icon} ${label}</button>`}
+function medicalForPlayer(id){return playerMedicalRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
+function skillsForPlayer(id){return playerSkillEvaluations.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.evaluation_date||'').localeCompare(a.evaluation_date||''))}
 function growthForPlayer(id){return playerGrowthRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
 function growthStatusLabel(v){return ({full:'参加',limited:'一部参加',rest:'見学・休養',absent:'欠席'})[v]||v||'未設定'}
 function injuryLabel(v){return ({none:'なし',watch:'経過観察',injured:'ケガあり',returning:'復帰途中'})[v]||v||'未設定'}
@@ -60,6 +62,8 @@ function openPlayerDetail(id){
    ${playerDetailTabButton('basic','基本情報','👤')}
    ${playerDetailTabButton('results','試合成績','📊')}
    ${playerDetailTabButton('growth','成長カルテ','📈')}
+   ${playerDetailTabButton('medical','メディカル','🩺',true)}
+   ${playerDetailTabButton('skills','技術評価','⚽',true)}
    ${playerDetailTabButton('ai','AI分析','🤖')}
    ${playerDetailTabButton('condition','コンディション','🩺',true)}
    ${playerDetailTabButton('guardian','保護者情報','👨‍👩‍👧',true)}
@@ -132,7 +136,54 @@ function openPlayerDetail(id){
    <div class="muted player-chart-note">出場時間・得点・アシスト、身体記録を時系列で確認できます。</div>
  </div>
 
- <div id="playerTab-ai"<div id="playerTab-ai" class="player-tab-panel hidden">
+ <div id="playerTab-ai"
+ ${staff?`<div id="playerTab-medical" class="player-tab-panel hidden">
+   <div class="detail-panel">
+     <div class="section-title"><h4>メディカルカルテ</h4><button class="light" onclick="toggleMedicalEntry()">＋ 記録を追加</button></div>
+     <div id="medicalEntryForm" class="medical-entry hidden">
+       <div class="grid">
+         <div><label>記録日</label><input id="medicalDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+         <div><label>ケガ部位</label><input id="medicalBodyPart" placeholder="例：右足首、左ひざ"></div>
+         <div><label>症状・内容</label><input id="medicalDiagnosis" placeholder="例：捻挫、成長痛、打撲"></div>
+         <div><label>重症度</label><select id="medicalSeverity"><option value="1">1 軽い</option><option value="2">2 やや軽い</option><option value="3" selected>3 中程度</option><option value="4">4 重い</option><option value="5">5 非常に重い</option></select></div>
+         <div><label>練習参加</label><select id="medicalParticipation"><option value="full">通常参加</option><option value="limited">制限付き</option><option value="rest">見学・休養</option><option value="absent">欠席</option></select></div>
+         <div><label>復帰予定日</label><input id="medicalReturnDate" type="date"></div>
+         <div><label>受診先</label><input id="medicalClinic" placeholder="病院・整骨院など"></div>
+         <div><label>通院状況</label><select id="medicalVisitStatus"><option value="none">未受診</option><option value="scheduled">受診予定</option><option value="visited">受診済み</option><option value="treatment">治療中</option><option value="cleared">復帰許可</option></select></div>
+       </div>
+       <label>対応・注意事項</label><textarea id="medicalAction" placeholder="アイシング、運動制限、保護者共有内容など"></textarea>
+       <div class="modal-actions"><button onclick="saveMedicalRecord('${p.id}')">メディカル記録を保存</button><button class="secondary" onclick="toggleMedicalEntry()">閉じる</button></div>
+     </div>
+     <div class="medical-history">
+       ${medicalForPlayer(p.id).length?medicalForPlayer(p.id).map(x=>`<div class="medical-row severity-${x.severity||3}">
+         <div><b>${esc(x.record_date||'')}</b><span>${esc(x.body_part||'部位未設定')}</span></div>
+         <div><b>${esc(x.diagnosis||'内容未入力')}</b><span>${esc(x.participation_status||'')}</span></div>
+         <div>${x.return_date?`復帰予定：${esc(x.return_date)}`:'復帰予定未設定'}<br>${esc(x.action_note||'')}</div>
+         <button class="danger mini" onclick="deleteMedicalRecord('${x.id}')">削除</button>
+       </div>`).join(''):'<div class="muted">メディカル記録はありません。</div>'}
+     </div>
+   </div>
+ </div>
+
+ <div id="playerTab-skills" class="player-tab-panel hidden">
+   <div class="detail-panel">
+     <div class="section-title"><h4>技術評価（5段階）</h4><button class="light" onclick="toggleSkillEntry()">＋ 評価を追加</button></div>
+     <div id="skillEntryForm" class="skill-entry hidden">
+       <div class="grid skill-grid">
+         ${['ドリブル','パス','シュート','守備','スピード','判断力','フィジカル','メンタル'].map((label,i)=>`<div><label>${label}</label><select id="skill${i}"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>`).join('')}
+         <div><label>評価日</label><input id="skillDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+       </div>
+       <label>評価コメント</label><textarea id="skillComment" placeholder="伸びた点、次に取り組むこと"></textarea>
+       <div class="modal-actions"><button onclick="saveSkillEvaluation('${p.id}')">技術評価を保存</button><button class="secondary" onclick="toggleSkillEntry()">閉じる</button></div>
+     </div>
+     <div class="skill-chart-wrap"><canvas id="playerSkillCanvas"></canvas></div>
+     <div class="skill-history">
+       ${skillsForPlayer(p.id).length?skillsForPlayer(p.id).map(s=>`<div class="skill-history-row"><div><b>${esc(s.evaluation_date||'')}</b></div><div>${esc(s.comment||'コメントなし')}</div><button class="danger mini" onclick="deleteSkillEvaluation('${s.id}')">削除</button></div>`).join(''):'<div class="muted">技術評価はありません。</div>'}
+     </div>
+   </div>
+ </div>`:''}
+
+<div id="playerTab-ai" class="player-tab-panel hidden">
    <div class="ai-player-summary">
      <h4>🤖 AIへ渡す育成データ</h4>
      <div class="detail-text">学年：${esc(p.grade||'未設定')}
@@ -183,7 +234,7 @@ function switchPlayerDetailTab(tab,button){
  document.querySelectorAll('#playerDetailContent .player-tab-panel').forEach(x=>x.classList.add('hidden'));
  document.querySelectorAll('#playerDetailContent .player-detail-tab').forEach(x=>x.classList.remove('active'));
  const panel=$('playerTab-'+tab);if(panel)panel.classList.remove('hidden');if(button)button.classList.add('active');
- if(tab==='growth')setTimeout(()=>{renderPlayerGrowthChart(activePlayerDetailId);if(isStaff())renderPlayerBodyGrowthChart(activePlayerDetailId)},30);
+ if(tab==='growth')setTimeout(()=>{renderPlayerGrowthChart(activePlayerDetailId);if(isStaff())renderPlayerBodyGrowthChart(activePlayerDetailId)},30);if(tab==='skills'&&isStaff())setTimeout(()=>renderPlayerSkillChart(activePlayerDetailId),30);
 }
 function renderPlayerGrowthChart(id){
  if(!window.Chart)return;
@@ -222,6 +273,30 @@ function renderPlayerBodyGrowthChart(id){
  const rows=[...growthForPlayer(id)].reverse();if(canvas._chart)canvas._chart.destroy();
  canvas._chart=new Chart(canvas,{type:'line',data:{labels:rows.map(x=>x.record_date),datasets:[{label:'身長（cm）',data:rows.map(x=>x.height_cm),yAxisID:'y'},{label:'体重（kg）',data:rows.map(x=>x.weight_kg),yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{y:{position:'left',beginAtZero:false,title:{display:true,text:'身長'}},y1:{position:'right',beginAtZero:false,grid:{drawOnChartArea:false},title:{display:true,text:'体重'}}},plugins:{legend:{position:'bottom'}}}})
 }
+function toggleMedicalEntry(){const e=$('medicalEntryForm');if(e)e.classList.toggle('hidden')}
+async function saveMedicalRecord(playerId){
+ if(!isStaff())return;
+ const date=$('medicalDate').value;if(!date){showMessage('記録日を入力してください。');return}
+ const data={player_id:String(playerId),record_date:date,body_part:$('medicalBodyPart').value.trim(),diagnosis:$('medicalDiagnosis').value.trim(),severity:+$('medicalSeverity').value||3,participation_status:$('medicalParticipation').value,return_date:$('medicalReturnDate').value||null,clinic:$('medicalClinic').value.trim(),visit_status:$('medicalVisitStatus').value,action_note:$('medicalAction').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
+ const r=await sb.from('player_medical_records').insert(data);if(r.error){showMessage(r.error.message);return}
+ showMessage('メディカル記録を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)
+}
+async function deleteMedicalRecord(id){if(!isStaff()||!confirm('このメディカル記録を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_medical_records').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="medical"]');if(btn)switchPlayerDetailTab('medical',btn)}
+
+function toggleSkillEntry(){const e=$('skillEntryForm');if(e)e.classList.toggle('hidden')}
+async function saveSkillEvaluation(playerId){
+ if(!isStaff())return;
+ const date=$('skillDate').value;if(!date){showMessage('評価日を入力してください。');return}
+ const data={player_id:String(playerId),evaluation_date:date,dribbling:+$('skill0').value,passing:+$('skill1').value,shooting:+$('skill2').value,defending:+$('skill3').value,speed:+$('skill4').value,decision_making:+$('skill5').value,physical:+$('skill6').value,mental:+$('skill7').value,comment:$('skillComment').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
+ const r=await sb.from('player_skill_evaluations').upsert(data,{onConflict:'player_id,evaluation_date'});if(r.error){showMessage(r.error.message);return}
+ showMessage('技術評価を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)
+}
+async function deleteSkillEvaluation(id){if(!isStaff()||!confirm('この技術評価を削除しますか？'))return;const playerId=activePlayerDetailId;const r=await sb.from('player_skill_evaluations').delete().eq('id',id);if(r.error){showMessage(r.error.message);return}await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="skills"]');if(btn)switchPlayerDetailTab('skills',btn)}
+function renderPlayerSkillChart(id){
+ if(!window.Chart)return;const canvas=$('playerSkillCanvas');if(!canvas)return;const s=skillsForPlayer(id)[0];
+ if(canvas._chart)canvas._chart.destroy();const vals=s?[s.dribbling,s.passing,s.shooting,s.defending,s.speed,s.decision_making,s.physical,s.mental]:[0,0,0,0,0,0,0,0];
+ canvas._chart=new Chart(canvas,{type:'radar',data:{labels:['ドリブル','パス','シュート','守備','スピード','判断力','フィジカル','メンタル'],datasets:[{label:s?`最新評価 ${s.evaluation_date}`:'未評価',data:vals}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,min:0,max:5,ticks:{stepSize:1}}},plugins:{legend:{position:'bottom'}}}})
+}
 function copyPlayerSummary(id){
  const p=players.find(x=>String(x.id)===String(id));if(!p)return;const t=totals(p);
  const text=`${p.name} 選手データ
@@ -236,7 +311,7 @@ MVP：${t.mvp}
  navigator.clipboard.writeText(text).then(()=>showMessage('選手データをコピーしました。','ok')).catch(()=>showMessage('コピーできませんでした。'));
 }
 function closePlayerDetail(){if(playerGrowthChart){playerGrowthChart.destroy();playerGrowthChart=null}$('playerDetailModal').classList.add('hidden')}
-function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p),g=growthForPlayer(id).slice(0,5);setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n最近の成長記録：${g.length?g.map(x=>`${x.record_date} 身長${x.height_cm||'-'}cm 体重${x.weight_kg||'-'}kg 疲労${x.fatigue_level} 調子${x.condition_level} ${injuryLabel(x.injury_status)} ${growthStatusLabel(x.training_status)}`).join(' / '):'未記録'}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
+function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p),g=growthForPlayer(id).slice(0,5),med=medicalForPlayer(id).slice(0,3),sk=skillsForPlayer(id)[0];setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n最近の成長記録：${g.length?g.map(x=>`${x.record_date} 身長${x.height_cm||'-'}cm 体重${x.weight_kg||'-'}kg 疲労${x.fatigue_level} 調子${x.condition_level} ${injuryLabel(x.injury_status)} ${growthStatusLabel(x.training_status)}`).join(' / '):'未記録'}\n最近のメディカル情報：${med.length?med.map(x=>`${x.record_date} ${x.body_part||''} ${x.diagnosis||''} 復帰予定${x.return_date||'-'}`).join(' / '):'未記録'}\n最新技術評価：${sk?`ドリブル${sk.dribbling} パス${sk.passing} シュート${sk.shooting} 守備${sk.defending} スピード${sk.speed} 判断力${sk.decision_making} フィジカル${sk.physical} メンタル${sk.mental}`:'未評価'}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
 async function savePlayer(){if(!isStaff())return;const name=$('editName').value.trim();if(!name){showMessage('名前を入力してください。');return}const id=$('editPlayerId').value||('P'+Date.now().toString(36));const data={id,name,photo_url:$('editPhotoData').value||null,number:$('editNumber').value.trim(),grade:$('editGrade').value.trim(),birth_date:$('editBirthDate').value||null,position:$('editPosition').value.trim(),dominant_foot:$('editDominantFoot').value,height_cm:+$('editHeight').value||null,weight_kg:+$('editWeight').value||null,status:$('editStatus').value,strengths:$('editStrengths').value.trim(),development_goal:$('editDevelopmentGoal').value.trim(),past_apps:+$('editPastApps').value||0,past_goals:+$('editPastGoals').value||0,past_assists:+$('editPastAssists').value||0,past_yellow:+$('editPastYellow').value||0,past_red:+$('editPastRed').value||0,updated_at:new Date().toISOString()};const r=await sb.from('players').upsert(data);if(r.error){showMessage(r.error.message);return}const privateData={player_id:String(id),fatigue_level:+$('editFatigue').value||3,condition_level:+$('editCondition').value||3,coach_note:$('editCoachNote').value.trim(),guardian_name:$('editGuardianName').value.trim(),guardian_phone:$('editGuardianPhone').value.trim(),guardian_email:$('editGuardianEmail').value.trim(),emergency_contact:$('editEmergencyContact').value.trim(),updated_at:new Date().toISOString()};const pr=await sb.from('player_private').upsert(privateData);if(pr.error){showMessage('基本情報は保存しましたが、非公開情報の保存に失敗しました：'+pr.error.message);return}closePlayerModal();showMessage('選手詳細を保存しました。','ok');await loadAll()}
 async function deletePlayer(id){if(!isStaff())return;const p=players.find(x=>x.id===id);if(!p||!confirm(`「${p.name}」を削除しますか？\nこの選手の試合記録もすべて削除されます。`))return;const rr=await sb.from('records').delete().eq('player_id',id);if(rr.error){showMessage('選手記録の削除エラー：'+rr.error.message);return}const r=await sb.from('players').delete().eq('id',id);if(r.error)showMessage(r.error.message);else{showMessage('選手を削除しました。','ok');await loadAll()}}
 async function login(){const r=await sb.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(r.error)showMessage('ログイン失敗：'+r.error.message);else showMessage('ログインしました。','ok')}

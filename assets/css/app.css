@@ -105,3 +105,17 @@ button.mini{padding:5px 8px;font-size:12px}
  .growth-history-row{grid-template-columns:1fr}
  .body-growth-wrap{height:260px}
 }
+
+
+/* Ver.8.0 選手カルテ実用版 */
+.medical-entry,.skill-entry{border:1px dashed #93c5fd;background:#eff6ff;border-radius:12px;padding:12px;margin:10px 0}
+.medical-history,.skill-history{display:grid;gap:8px;margin-top:12px}
+.medical-row{display:grid;grid-template-columns:150px 1fr 1.5fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-left:6px solid #94a3b8;border-radius:10px;padding:10px;background:#fff}
+.medical-row.severity-1{border-left-color:#22c55e}.medical-row.severity-2{border-left-color:#84cc16}.medical-row.severity-3{border-left-color:#eab308}.medical-row.severity-4{border-left-color:#f97316}.medical-row.severity-5{border-left-color:#ef4444}
+.medical-row span{display:block;color:#64748b;font-size:12px;margin-top:3px}
+.skill-chart-wrap{height:360px;position:relative}
+.skill-history-row{display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+@media(max-width:760px){
+ .medical-row,.skill-history-row{grid-template-columns:1fr}
+ .skill-chart-wrap{height:300px}
+}
