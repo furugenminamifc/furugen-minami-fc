@@ -88,3 +88,20 @@ main{max-width:1180px;margin:auto;padding:14px}.page{display:none}.page.show{dis
  .condition-meter-grid{grid-template-columns:1fr}
  .player-growth-wrap{height:300px}
 }
+
+
+/* Ver.7.3 選手成長カルテ */
+.growth-card-panel{margin-top:12px}
+.growth-entry{border:1px dashed #93c5fd;background:#eff6ff;border-radius:12px;padding:12px;margin:10px 0}
+.body-growth-wrap{height:300px;position:relative;margin:14px 0}
+.growth-history{display:grid;gap:8px}
+.growth-history-row{display:grid;grid-template-columns:150px 1fr 1.5fr auto;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.growth-history-row>div:first-child span{display:block;color:#64748b;font-size:12px;margin-top:3px}
+.growth-history-row>div:nth-child(2){display:flex;gap:5px;flex-wrap:wrap}
+.growth-history-row>div:nth-child(2) span{background:#e2e8f0;border-radius:999px;padding:3px 7px;font-size:12px}
+.growth-note{white-space:pre-wrap;color:#475569}
+button.mini{padding:5px 8px;font-size:12px}
+@media(max-width:760px){
+ .growth-history-row{grid-template-columns:1fr}
+ .body-growth-wrap{height:260px}
+}

@@ -1,4 +1,4 @@
-let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],teamSettings={},editingMatchId='',charts={};
+let sb=null,session=null,profile=null,players=[],matches=[],records=[],reports=[],videoNotes=[],v7Plans=[],playerPrivate=[],playerGrowthRecords=[],teamSettings={},editingMatchId='',charts={};
 const $=id=>document.getElementById(id);
 function showMessage(text,type='warn'){const e=$('message');e.textContent=text;e.className=(type==='ok'?'notice success':'notice');e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),5000)}
 function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));$(id).classList.add('show');if(id==='entry')renderRecordInputs();if(id==='analytics')setTimeout(renderAnalytics,0);if(id==='ai')setTimeout(testAiConnection,0);if(id==='reports')setTimeout(renderReportsPage,0);if(id==='video')setTimeout(renderVideoPage,0);if(id==='ver7')setTimeout(renderV7Page,0)}
@@ -6,8 +6,8 @@ function isStaff(){return !!(profile&&profile.active&&['admin','coach'].includes
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 async function init(){const c=window.FURUGEN_CONFIG;if(!c||!c.SUPABASE_URL||!c.SUPABASE_ANON_KEY){showMessage('config.jsの設定がありません。');return}sb=supabase.createClient(c.SUPABASE_URL,c.SUPABASE_ANON_KEY);const x=await sb.auth.getSession();session=x.data.session;await loadProfile();await loadAll();setupRealtime();sb.auth.onAuthStateChange(async(_,s)=>{session=s;await loadProfile();await loadAll()});if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
 async function loadProfile(){profile=null;if(session){const r=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();profile=r.data}const staff=isStaff();$('mode').textContent=staff?`${session.user.email}（${profile.role==='admin'?'管理者':'コーチ'}）`:'保護者閲覧モード';$('loginOut').classList.toggle('hidden',!!session);$('loginIn').classList.toggle('hidden',!session);$('entryForm').classList.toggle('hidden',!staff);$('needLogin').classList.toggle('hidden',staff);$('addPlayerBtn').classList.toggle('hidden',!staff);if(session)$('loginWho').textContent=`${session.user.email} / 権限：${profile?.role||'未設定'}`}
-async function loadAll(){const [p,m,r,t,rp,vn,v7,pp]=await Promise.all([sb.from('players').select('*').order('grade').order('name'),sb.from('matches').select('*').order('match_date',{ascending:false}),sb.from('records').select('*'),sb.from('team_settings').select('*'),sb.from('ai_reports').select('*').order('created_at',{ascending:false}),sb.from('video_notes').select('*').order('created_at',{ascending:false}),sb.from('ai_plans').select('*').order('created_at',{ascending:false}),isStaff()?sb.from('player_private').select('*'):Promise.resolve({data:[],error:null})]);if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}players=p.data||[];matches=m.data||[];records=r.data||[];reports=rp.error?[]:(rp.data||[]);videoNotes=vn.error?[]:(vn.data||[]);v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);playerPrivate=pp.error?[]:(pp.data||[]);teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);applyTeamSettings();refreshFilters();renderAll()}
-function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).subscribe()}
+async function loadAll(){const [p,m,r,t,rp,vn,v7,pp,pg]=await Promise.all([sb.from('players').select('*').order('grade').order('name'),sb.from('matches').select('*').order('match_date',{ascending:false}),sb.from('records').select('*'),sb.from('team_settings').select('*'),sb.from('ai_reports').select('*').order('created_at',{ascending:false}),sb.from('video_notes').select('*').order('created_at',{ascending:false}),sb.from('ai_plans').select('*').order('created_at',{ascending:false}),isStaff()?sb.from('player_private').select('*'):Promise.resolve({data:[],error:null}),isStaff()?sb.from('player_growth_records').select('*').order('record_date',{ascending:false}):Promise.resolve({data:[],error:null})]);if(p.error||m.error||r.error){showMessage('データ取得エラー：'+(p.error||m.error||r.error).message);return}players=p.data||[];matches=m.data||[];records=r.data||[];reports=rp.error?[]:(rp.data||[]);videoNotes=vn.error?[]:(vn.data||[]);v7Plans=v7.error?JSON.parse(localStorage.getItem('furugenV7Plans')||'[]'):(v7.data||[]);playerPrivate=pp.error?[]:(pp.data||[]);playerGrowthRecords=pg.error?[]:(pg.data||[]);teamSettings={};if(!t.error)(t.data||[]).forEach(x=>teamSettings[x.key]=x.value);applyTeamSettings();refreshFilters();renderAll()}
+function setupRealtime(){sb.channel('furugen-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'matches'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'records'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'team_settings'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_reports'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'video_notes'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'ai_plans'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_private'},loadAll).on('postgres_changes',{event:'*',schema:'public',table:'player_growth_records'},loadAll).subscribe()}
 function totals(p){const rr=records.filter(x=>x.player_id===p.id);return{apps:(p.past_apps||0)+rr.filter(x=>x.played).length,minutes:rr.reduce((a,x)=>a+(x.minutes||0),0),goals:(p.past_goals||0)+rr.reduce((a,x)=>a+(x.goals||0),0),assists:(p.past_assists||0)+rr.reduce((a,x)=>a+(x.assists||0),0),yellow:(p.past_yellow||0)+rr.reduce((a,x)=>a+(x.yellow||0),0),red:(p.past_red||0)+rr.reduce((a,x)=>a+(x.red||0),0),mvp:rr.filter(x=>x.mvp).length}}
 function refreshFilters(){const seasons=[...new Set(matches.map(x=>x.season||String(x.match_date||'').slice(0,4)).filter(Boolean))].sort().reverse();$('matchSeason').innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');const grades=[...new Set(players.map(x=>x.grade).filter(Boolean))].sort();$('rankGrade').innerHTML='<option value="">すべて</option>'+grades.map(x=>`<option>${esc(x)}</option>`).join('');const as=$('analysisSeason'),ac=$('analysisCompetition');if(as){const seasons=[...new Set(matches.map(x=>x.season).filter(Boolean))].sort((a,b)=>b-a);const keep=as.value;as.innerHTML='<option value="">すべて</option>'+seasons.map(x=>`<option>${x}</option>`).join('');as.value=keep}if(ac){const comps=[...new Set(matches.map(x=>x.competition||'通常試合'))].sort((a,b)=>a.localeCompare(b,'ja'));const keep=ac.value;ac.innerHTML='<option value="">すべて</option>'+comps.map(x=>`<option>${esc(x)}</option>`).join('');ac.value=keep}}
 function renderAll(){renderDashboard();renderPlayers();renderMatches();renderRanking();renderRecordInputs();refreshVer6Selects();renderSavedReports();renderVideoNotes();refreshV7Selects();renderV7History()}
@@ -31,6 +31,9 @@ function levelLabel(v,type){const n=Number(v)||3;return type==='fatigue'?['','�
 let activePlayerDetailId='',playerGrowthChart=null;
 function playerMatchRows(id){return records.filter(r=>String(r.player_id)===String(id)&&r.played).map(r=>({r,m:matches.find(m=>String(m.id)===String(r.match_id))})).filter(x=>x.m).sort((a,b)=>(b.m.match_date||'').localeCompare(a.m.match_date||''))}
 function playerDetailTabButton(id,label,icon,staffOnly=false){if(staffOnly&&!isStaff())return '';return `<button class="player-detail-tab" data-player-tab="${id}" onclick="switchPlayerDetailTab('${id}',this)">${icon} ${label}</button>`}
+function growthForPlayer(id){return playerGrowthRecords.filter(x=>String(x.player_id)===String(id)).sort((a,b)=>(b.record_date||'').localeCompare(a.record_date||''))}
+function growthStatusLabel(v){return ({full:'参加',limited:'一部参加',rest:'見学・休養',absent:'欠席'})[v]||v||'未設定'}
+function injuryLabel(v){return ({none:'なし',watch:'経過観察',injured:'ケガあり',returning:'復帰途中'})[v]||v||'未設定'}
 function openPlayerDetail(id){
  const p=players.find(x=>String(x.id)===String(id));if(!p)return;
  activePlayerDetailId=String(id);
@@ -56,7 +59,7 @@ function openPlayerDetail(id){
  <div class="player-detail-tabs" role="tablist">
    ${playerDetailTabButton('basic','基本情報','👤')}
    ${playerDetailTabButton('results','試合成績','📊')}
-   ${playerDetailTabButton('growth','成長グラフ','📈')}
+   ${playerDetailTabButton('growth','成長カルテ','📈')}
    ${playerDetailTabButton('ai','AI分析','🤖')}
    ${playerDetailTabButton('condition','コンディション','🩺',true)}
    ${playerDetailTabButton('guardian','保護者情報','👨‍👩‍👧',true)}
@@ -99,10 +102,37 @@ function openPlayerDetail(id){
      <div class="section-title"><h4>試合ごとの成長推移</h4><span class="muted">直近20試合</span></div>
      <div class="player-growth-wrap"><canvas id="playerGrowthCanvas"></canvas></div>
    </div>
-   <div class="muted player-chart-note">出場時間・得点・アシストを試合順に表示します。記録を入力すると自動で更新されます。</div>
+   ${staff?`<div class="detail-panel growth-card-panel">
+     <div class="section-title"><h4>身体・コンディション記録</h4><button class="light" onclick="toggleGrowthEntry()">＋ 記録を追加</button></div>
+     <div id="growthEntryForm" class="growth-entry hidden">
+       <div class="grid">
+         <div><label>記録日</label><input id="growthDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+         <div><label>身長（cm）</label><input id="growthHeight" type="number" step="0.1" min="0"></div>
+         <div><label>体重（kg）</label><input id="growthWeight" type="number" step="0.1" min="0"></div>
+         <div><label>睡眠時間</label><input id="growthSleep" type="number" step="0.5" min="0" max="24"></div>
+         <div><label>疲労度</label><select id="growthFatigue"><option value="1">1 とても元気</option><option value="2">2 元気</option><option value="3" selected>3 普通</option><option value="4">4 疲れ気味</option><option value="5">5 強い疲労</option></select></div>
+         <div><label>調子</label><select id="growthCondition"><option value="1">1 低い</option><option value="2">2 やや低い</option><option value="3" selected>3 普通</option><option value="4">4 良い</option><option value="5">5 とても良い</option></select></div>
+         <div><label>ケガ状態</label><select id="growthInjury"><option value="none">なし</option><option value="watch">経過観察</option><option value="injured">ケガあり</option><option value="returning">復帰途中</option></select></div>
+         <div><label>練習参加</label><select id="growthTraining"><option value="full">参加</option><option value="limited">一部参加</option><option value="rest">見学・休養</option><option value="absent">欠席</option></select></div>
+         <div><label>コーチ評価</label><select id="growthCoachScore"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+       </div>
+       <label>記録メモ</label><textarea id="growthNote" placeholder="練習内容、本人の様子、次回確認すること"></textarea>
+       <div class="modal-actions"><button onclick="saveGrowthRecord('${p.id}')">記録を保存</button><button class="secondary" onclick="toggleGrowthEntry()">閉じる</button></div>
+     </div>
+     <div class="body-growth-wrap"><canvas id="playerBodyGrowthCanvas"></canvas></div>
+     <div class="growth-history">
+       ${growthForPlayer(p.id).length?growthForPlayer(p.id).map(g=>`<div class="growth-history-row">
+         <div><b>${esc(g.record_date||'')}</b><span>${g.height_cm?`${g.height_cm}cm`:''} ${g.weight_kg?`/ ${g.weight_kg}kg`:''}</span></div>
+         <div><span>疲労 ${g.fatigue_level||3}</span><span>調子 ${g.condition_level||3}</span><span>${esc(injuryLabel(g.injury_status))}</span><span>${esc(growthStatusLabel(g.training_status))}</span></div>
+         <div class="growth-note">${esc(g.note||'')}</div>
+         <button class="danger mini" onclick="deleteGrowthRecord('${g.id}')">削除</button>
+       </div>`).join(''):'<div class="muted">成長記録はまだありません。</div>'}
+     </div>
+   </div>`:''}
+   <div class="muted player-chart-note">出場時間・得点・アシスト、身体記録を時系列で確認できます。</div>
  </div>
 
- <div id="playerTab-ai" class="player-tab-panel hidden">
+ <div id="playerTab-ai"<div id="playerTab-ai" class="player-tab-panel hidden">
    <div class="ai-player-summary">
      <h4>🤖 AIへ渡す育成データ</h4>
      <div class="detail-text">学年：${esc(p.grade||'未設定')}
@@ -153,7 +183,7 @@ function switchPlayerDetailTab(tab,button){
  document.querySelectorAll('#playerDetailContent .player-tab-panel').forEach(x=>x.classList.add('hidden'));
  document.querySelectorAll('#playerDetailContent .player-detail-tab').forEach(x=>x.classList.remove('active'));
  const panel=$('playerTab-'+tab);if(panel)panel.classList.remove('hidden');if(button)button.classList.add('active');
- if(tab==='growth')setTimeout(()=>renderPlayerGrowthChart(activePlayerDetailId),30);
+ if(tab==='growth')setTimeout(()=>{renderPlayerGrowthChart(activePlayerDetailId);if(isStaff())renderPlayerBodyGrowthChart(activePlayerDetailId)},30);
 }
 function renderPlayerGrowthChart(id){
  if(!window.Chart)return;
@@ -172,6 +202,26 @@ function renderPlayerGrowthChart(id){
    plugins:{legend:{position:'bottom'}}}
  });
 }
+function toggleGrowthEntry(){const e=$('growthEntryForm');if(e)e.classList.toggle('hidden')}
+async function saveGrowthRecord(playerId){
+ if(!isStaff())return;
+ const date=$('growthDate').value;if(!date){showMessage('記録日を入力してください。');return}
+ const data={player_id:String(playerId),record_date:date,height_cm:+$('growthHeight').value||null,weight_kg:+$('growthWeight').value||null,sleep_hours:+$('growthSleep').value||null,fatigue_level:+$('growthFatigue').value||3,condition_level:+$('growthCondition').value||3,injury_status:$('growthInjury').value,training_status:$('growthTraining').value,coach_score:+$('growthCoachScore').value||3,note:$('growthNote').value.trim(),created_by:session?.user?.id||null,updated_at:new Date().toISOString()};
+ const r=await sb.from('player_growth_records').upsert(data,{onConflict:'player_id,record_date'});
+ if(r.error){showMessage('成長記録を保存できません：'+r.error.message);return}
+ showMessage('成長記録を保存しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
+}
+async function deleteGrowthRecord(id){
+ if(!isStaff()||!confirm('この成長記録を削除しますか？'))return;
+ const playerId=activePlayerDetailId;const r=await sb.from('player_growth_records').delete().eq('id',id);
+ if(r.error){showMessage(r.error.message);return}
+ showMessage('成長記録を削除しました。','ok');await loadAll();openPlayerDetail(playerId);const btn=$('playerDetailContent').querySelector('[data-player-tab="growth"]');if(btn)switchPlayerDetailTab('growth',btn)
+}
+function renderPlayerBodyGrowthChart(id){
+ if(!window.Chart)return;const canvas=$('playerBodyGrowthCanvas');if(!canvas)return;
+ const rows=[...growthForPlayer(id)].reverse();if(canvas._chart)canvas._chart.destroy();
+ canvas._chart=new Chart(canvas,{type:'line',data:{labels:rows.map(x=>x.record_date),datasets:[{label:'身長（cm）',data:rows.map(x=>x.height_cm),yAxisID:'y'},{label:'体重（kg）',data:rows.map(x=>x.weight_kg),yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{y:{position:'left',beginAtZero:false,title:{display:true,text:'身長'}},y1:{position:'right',beginAtZero:false,grid:{drawOnChartArea:false},title:{display:true,text:'体重'}}},plugins:{legend:{position:'bottom'}}}})
+}
 function copyPlayerSummary(id){
  const p=players.find(x=>String(x.id)===String(id));if(!p)return;const t=totals(p);
  const text=`${p.name} 選手データ
@@ -186,7 +236,7 @@ MVP：${t.mvp}
  navigator.clipboard.writeText(text).then(()=>showMessage('選手データをコピーしました。','ok')).catch(()=>showMessage('コピーできませんでした。'));
 }
 function closePlayerDetail(){if(playerGrowthChart){playerGrowthChart.destroy();playerGrowthChart=null}$('playerDetailModal').classList.add('hidden')}
-function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p);setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
+function preparePlayerDetailAi(id){const p=players.find(x=>String(x.id)===String(id));if(!p)return;closePlayerDetail();showPage('ai');setAiMode('player',document.querySelector('[data-mode="player"]'));const t=totals(p),g=growthForPlayer(id).slice(0,5);setAiPrompt(`${p.name}選手の育成評価を作成してください。\n学年：${p.grade||'未設定'}\nポジション：${p.position||'未設定'}\n強み：${p.strengths||'未入力'}\n次の目標：${p.development_goal||'未入力'}\n出場：${t.apps}試合、${t.minutes}分\n得点：${t.goals}、アシスト：${t.assists}、MVP：${t.mvp}\n最近の成長記録：${g.length?g.map(x=>`${x.record_date} 身長${x.height_cm||'-'}cm 体重${x.weight_kg||'-'}kg 疲労${x.fatigue_level} 調子${x.condition_level} ${injuryLabel(x.injury_status)} ${growthStatusLabel(x.training_status)}`).join(' / '):'未記録'}\n本人に伝える良い点、伸ばしたい点、次の具体目標、前向きな声かけを小学生に伝わる言葉で作ってください。`)}
 async function savePlayer(){if(!isStaff())return;const name=$('editName').value.trim();if(!name){showMessage('名前を入力してください。');return}const id=$('editPlayerId').value||('P'+Date.now().toString(36));const data={id,name,photo_url:$('editPhotoData').value||null,number:$('editNumber').value.trim(),grade:$('editGrade').value.trim(),birth_date:$('editBirthDate').value||null,position:$('editPosition').value.trim(),dominant_foot:$('editDominantFoot').value,height_cm:+$('editHeight').value||null,weight_kg:+$('editWeight').value||null,status:$('editStatus').value,strengths:$('editStrengths').value.trim(),development_goal:$('editDevelopmentGoal').value.trim(),past_apps:+$('editPastApps').value||0,past_goals:+$('editPastGoals').value||0,past_assists:+$('editPastAssists').value||0,past_yellow:+$('editPastYellow').value||0,past_red:+$('editPastRed').value||0,updated_at:new Date().toISOString()};const r=await sb.from('players').upsert(data);if(r.error){showMessage(r.error.message);return}const privateData={player_id:String(id),fatigue_level:+$('editFatigue').value||3,condition_level:+$('editCondition').value||3,coach_note:$('editCoachNote').value.trim(),guardian_name:$('editGuardianName').value.trim(),guardian_phone:$('editGuardianPhone').value.trim(),guardian_email:$('editGuardianEmail').value.trim(),emergency_contact:$('editEmergencyContact').value.trim(),updated_at:new Date().toISOString()};const pr=await sb.from('player_private').upsert(privateData);if(pr.error){showMessage('基本情報は保存しましたが、非公開情報の保存に失敗しました：'+pr.error.message);return}closePlayerModal();showMessage('選手詳細を保存しました。','ok');await loadAll()}
 async function deletePlayer(id){if(!isStaff())return;const p=players.find(x=>x.id===id);if(!p||!confirm(`「${p.name}」を削除しますか？\nこの選手の試合記録もすべて削除されます。`))return;const rr=await sb.from('records').delete().eq('player_id',id);if(rr.error){showMessage('選手記録の削除エラー：'+rr.error.message);return}const r=await sb.from('players').delete().eq('id',id);if(r.error)showMessage(r.error.message);else{showMessage('選手を削除しました。','ok');await loadAll()}}
 async function login(){const r=await sb.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(r.error)showMessage('ログイン失敗：'+r.error.message);else showMessage('ログインしました。','ok')}
